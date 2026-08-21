@@ -1,22 +1,10 @@
 "use client";
 
 import { Info, ArrowUp, ArrowDown } from "lucide-react";
-
-interface BillFactor {
-  label: string;
-  impact: number; // positive = increases bill, negative = decreases
-  percentage: number;
-}
-
-const mockFactors: BillFactor[] = [
-  { label: "Тариф електро +15%", impact: 185, percentage: 15 },
-  { label: "Витрата електро +10%", impact: 124, percentage: 10 },
-  { label: "Витрата газу −5%", impact: -48, percentage: -5 },
-  { label: "Витрата води +3%", impact: 22, percentage: 3 },
-];
+import { getBillChangeFactors } from "@/lib/mockData";
 
 export function BillExplanation() {
-  const totalImpact = mockFactors.reduce((sum, f) => sum + f.impact, 0);
+  const { factors, totalImpact, previousBill, currentBill, forecast } = getBillChangeFactors();
   const isIncrease = totalImpact > 0;
 
   return (
@@ -35,29 +23,40 @@ export function BillExplanation() {
               {isIncrease ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
               {isIncrease ? "+" : ""}{totalImpact.toLocaleString("uk-UA")} ₴
             </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {previousBill.toLocaleString("uk-UA")} → {currentBill.toLocaleString("uk-UA")} ₴
+            </p>
           </div>
           <div className="text-right">
             <p className="text-xs text-muted-foreground">Прогноз</p>
-            <p className="text-sm font-medium">2,398 ₴</p>
+            <p className="text-sm font-medium">{forecast.toLocaleString("uk-UA")} ₴</p>
           </div>
         </div>
-        <div className="divide-y divide-border">
-          {mockFactors.map((factor, idx) => (
-            <div key={idx} className="flex items-center justify-between p-3">
-              <div className="flex items-center gap-2">
-                {factor.impact > 0 ? (
-                  <ArrowUp className="h-3.5 w-3.5 text-orange-500" />
-                ) : (
-                  <ArrowDown className="h-3.5 w-3.5 text-green-500" />
-                )}
-                <span className="text-sm text-foreground">{factor.label}</span>
+        {factors.length > 0 ? (
+          <div className="divide-y divide-border">
+            {factors.map((factor, idx) => (
+              <div key={idx} className="flex items-center justify-between p-3">
+                <div className="flex items-center gap-2">
+                  {factor.impact > 0 ? (
+                    <ArrowUp className="h-3.5 w-3.5 text-orange-500" />
+                  ) : (
+                    <ArrowDown className="h-3.5 w-3.5 text-green-500" />
+                  )}
+                  <span className="text-sm text-foreground">{factor.label}</span>
+                </div>
+                <span className={`text-sm font-semibold tabular-nums ${factor.impact > 0 ? "text-orange-600" : "text-green-600"}`}>
+                  {factor.impact > 0 ? "+" : ""}{factor.impact} ₴
+                </span>
               </div>
-              <span className={`text-sm font-semibold tabular-nums ${factor.impact > 0 ? "text-orange-600" : "text-green-600"}`}>
-                {factor.impact > 0 ? "+" : ""}{factor.impact} ₴
-              </span>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="p-4 text-center">
+            <p className="text-sm text-muted-foreground">
+              Витрата стабільна — значних змін не виявлено
+            </p>
+          </div>
+        )}
       </div>
     </section>
   );

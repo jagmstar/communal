@@ -1,15 +1,7 @@
 "use client";
 
 import { Lightbulb, Leaf, TrendingUp, AlertCircle, Flame, Zap } from "lucide-react";
-
-interface Insight {
-  type: "tip" | "green" | "saving" | "warning" | "streak" | "anomaly";
-  title: string;
-  description: string;
-  icon: "lightbulb" | "leaf" | "trending" | "alert" | "flame" | "zap";
-  color: string;
-  bgColor: string;
-}
+import { getSmartInsights } from "@/lib/mockData";
 
 const iconMap = {
   lightbulb: Lightbulb,
@@ -20,50 +12,9 @@ const iconMap = {
   zap: Zap,
 };
 
-const mockInsights: Insight[] = [
-  {
-    type: "streak",
-    title: "🔥 12 місяців підряд",
-    description: "Передавав показники вчасно 12 місяців поспіль. Так тримати!",
-    icon: "flame",
-    color: "#f97316",
-    bgColor: "#fff7ed",
-  },
-  {
-    type: "saving",
-    title: "💡 Зеконом ₴340/рік",
-    description: "Перенеси 20% електро на нічний тариф (23:00-07:00) — тариф вдвічі нижчий.",
-    icon: "zap",
-    color: "#f59e0b",
-    bgColor: "#fef3c7",
-  },
-  {
-    type: "green",
-    title: "🌿 0.8т CO₂/рік",
-    description: "Твоя електро-витрата = 0.8т CO₂. Еквівалент 36 дерев. Знизь на 10% = 4 дерева.",
-    icon: "leaf",
-    color: "#22c55e",
-    bgColor: "#f0fdf4",
-  },
-  {
-    type: "anomaly",
-    title: "⚠ Вода +18%",
-    description: "Витрата гарячої води зросла на 18% vs липень. Можливий виток або новий прилад.",
-    icon: "alert",
-    color: "#ef4444",
-    bgColor: "#fef2f2",
-  },
-  {
-    type: "tip",
-    title: "📊 Газ: сезонний патерн",
-    description: "Твій газ зростає на 40% у грудні-лютому. Запаси дров зараз = зекономиш ₴500/міс взимку.",
-    icon: "lightbulb",
-    color: "#0891b2",
-    bgColor: "#ecfeff",
-  },
-];
-
 export function SmartInsights() {
+  const insights = getSmartInsights();
+
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between">
@@ -74,7 +25,7 @@ export function SmartInsights() {
         <span className="text-xs text-muted-foreground">AI аналітика</span>
       </div>
       <div className="space-y-2">
-        {mockInsights.map((insight, idx) => {
+        {insights.map((insight, idx) => {
           const Icon = iconMap[insight.icon];
           return (
             <div

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0891b2"/>
+      <stop offset="100%" stop-color="#0d9488"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <!-- House icon -->
+  <path d="M256 107 L373 202 L373 373 Q373 395 351 395 L161 395 Q139 395 139 373 L139 202 Z" fill="none" stroke="white" stroke-width="16" stroke-linejoin="round" stroke-linecap="round"/>
+  <!-- Meter display -->
+  <rect x="192" y="245" width="128" height="75" rx="10" fill="white" opacity="0.9"/>
+  <text x="256" y="297" font-family="monospace" font-size="38" font-weight="bold" fill="#0891b2" text-anchor="middle">1234</text>
+  <!-- Drop icon -->
+  <circle cx="256" cy="165" r="16" fill="white" opacity="0.6"/>
+</svg>

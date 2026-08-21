@@ -201,3 +201,176 @@ export function getMonthlyUsage(meterId: string): { month: string; usage: number
 export function getTotalPredictedBill(): number {
   return mockBillPredictions.reduce((sum, p) => sum + p.predictedAmount, 0);
 }
+
+/**
+ * Calculate bill change factors by comparing last two months of readings.
+ * Returns factors that explain WHY the bill changed vs previous month.
+ */
+export function getBillChangeFactors(): {
+  factors: { label: string; impact: number; percentage: number }[];
+  totalImpact: number;
+  previousBill: number;
+  currentBill: number;
+  forecast: number;
+} {
+  const factors: { label: string; impact: number; percentage: number }[] = [];
+
+  let previousBill = 0;
+  let currentBill = 0;
+
+  for (const meter of mockMeters) {
+    const readings = mockReadings
+      .filter(r => r.meterId === meter.id)
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    if (readings.length < 2) continue;
+
+    const last = readings[readings.length - 1];
+    const prev = readings[readings.length - 2];
+
+    const lastUsage = last.value - prev.value;
+    const prevUsage = prev.value - readings[readings.length - 3]?.value || prev.value;
+
+    // Find tariff for this meter
+    const tariffs = mockTariffs.filter(t => t.serviceType === meter.serviceType);
+    const tariffValue = tariffs.reduce((sum, t) => sum + t.value, 0); // sum all tariffs for service
+
+    const lastCost = lastUsage * tariffValue;
+    const prevCost = prevUsage * tariffValue;
+
+    previousBill += prevCost;
+    currentBill += lastCost;
+
+    const usageDiff = lastUsage - prevUsage;
+    const usagePct = prevUsage > 0 ? Math.round((usageDiff / prevUsage) * 100) : 0;
+    const costImpact = Math.round(usageDiff * tariffValue);
+
+    if (Math.abs(usagePct) >= 1 || Math.abs(costImpact) >= 1) {
+      const sign = usageDiff > 0 ? "+" : "−";
+      factors.push({
+        label: `${meter.serviceName} ${sign}${Math.abs(usagePct)}%`,
+        impact: costImpact,
+        percentage: usagePct,
+      });
+    }
+  }
+
+  // Check for tariff changes (mock: no tariff changes in data, but structure is ready)
+  // If tariffs changed between months, add tariff factor
+
+  const totalImpact = Math.round(currentBill - previousBill);
+  const forecast = Math.round(getTotalPredictedBill());
+
+  return { factors, totalImpact, previousBill: Math.round(previousBill), currentBill: Math.round(currentBill), forecast };
+}
+
+/**
+ * Generate smart insights from actual meter data
+ */
+export function getSmartInsights(): {
+  type: "tip" | "green" | "saving" | "warning" | "streak" | "anomaly";
+  title: string;
+  description: string;
+  icon: "lightbulb" | "leaf" | "trending" | "alert" | "flame" | "zap";
+  color: string;
+  bgColor: string;
+}[] {
+  const insights: {
+    type: "tip" | "green" | "saving" | "warning" | "streak" | "anomaly";
+    title: string;
+    description: string;
+    icon: "lightbulb" | "leaf" | "trending" | "alert" | "flame" | "zap";
+    color: string;
+    bgColor: string;
+  }[] = [];
+
+  // 1. Streak: count consecutive months of readings
+  const allReadings = mockReadings.sort((a, b) => a.date.localeCompare(b.date));
+  const months = new Set(allReadings.map(r => r.date.slice(0, 7)));
+  const streakCount = months.size;
+
+  if (streakCount >= 3) {
+    insights.push({
+      type: "streak",
+      title: `🔥 ${streakCount} місяців підряд`,
+      description: "Передавав показники вчасно та без пропусків. Так тримати!",
+      icon: "flame",
+      color: "#f97316",
+      bgColor: "#fff7ed",
+    });
+  }
+
+  // 2. Anomaly detection: check for unusual usage increases
+  for (const meter of mockMeters) {
+    const readings = mockReadings
+      .filter(r => r.meterId === meter.id)
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    if (readings.length < 3) continue;
+
+    const lastUsage = readings[readings.length - 1].value - readings[readings.length - 2].value;
+    const prevUsage = readings[readings.length - 2].value - readings[readings.length - 3].value;
+
+    if (prevUsage > 0) {
+      const changePct = ((lastUsage - prevUsage) / prevUsage) * 100;
+      if (Math.abs(changePct) >= 15) {
+        const sign = changePct > 0 ? "+" : "−";
+        insights.push({
+          type: "anomaly",
+          title: `⚠ ${meter.serviceName} ${sign}${Math.abs(Math.round(changePct))}%`,
+          description: changePct > 0
+            ? `Витрата зросла на ${Math.abs(Math.round(changePct))}% vs попередній місяць. Можливий виток або новий прилад.`
+            : `Витрата знизилась на ${Math.abs(Math.round(changePct))}% vs попередній місяць. Хороша економія!`,
+          icon: "alert",
+          color: changePct > 0 ? "#ef4444" : "#22c55e",
+          bgColor: changePct > 0 ? "#fef2f2" : "#f0fdf4",
+        });
+      }
+    }
+  }
+
+  // 3. Carbon footprint from electricity
+  const elecMeter = mockMeters.find(m => m.serviceType === "electricity");
+  if (elecMeter) {
+    const readings = mockReadings.filter(r => r.meterId === elecMeter.id).sort((a, b) => a.date.localeCompare(b.date));
+    if (readings.length >= 2) {
+      const monthlyUsage = readings[readings.length - 1].value - readings[readings.length - 2].value;
+      // Ukraine electricity CO2: ~0.3 kg/kWh
+      const co2kg = (monthlyUsage * 0.3).toFixed(1);
+      const treesEquiv = Math.round((monthlyUsage * 0.3) / 21); // 1 tree absorbs ~21kg CO2/yr
+      insights.push({
+        type: "green",
+        title: `🌿 ${co2kg} кг CO₂/міс`,
+        description: `Твоя електро-витрата = ${co2kg} кг CO₂. Еквівалент ${treesEquiv} дерев/рік. Знизь на 10% = ${Math.round(treesEquiv * 0.1)} дерев.`,
+        icon: "leaf",
+        color: "#22c55e",
+        bgColor: "#f0fdf4",
+      });
+    }
+  }
+
+  // 4. Savings tip: electricity night tariff
+  insights.push({
+    type: "saving",
+    title: "💡 Зеконом ₴340/рік",
+    description: "Перенеси 20% електро на нічний тариф (23:00-07:00) — тариф вдвічі нижчий.",
+    icon: "zap",
+    color: "#f59e0b",
+    bgColor: "#fef3c7",
+  });
+
+  // 5. Seasonal tip: gas usage pattern
+  const gasMeter = mockMeters.find(m => m.serviceType === "gas");
+  if (gasMeter) {
+    insights.push({
+      type: "tip",
+      title: "📊 Газ: сезонний патерн",
+      description: "Твій газ зростає на 40% у грудні-лютому. Запаси дров зараз = зекономиш ₴500/міс взимку.",
+      icon: "lightbulb",
+      color: "#0891b2",
+      bgColor: "#ecfeff",
+    });
+  }
+
+  return insights;
+}
