@@ -35,3 +35,5 @@ next-env.d.ts
 /android/app/build
 /android/.gradle
 /android/local.properties
+dev-stdout.log
+dev-stderr.log
