@@ -3,6 +3,8 @@ import { Sparkles, TrendingUp, AlertTriangle, ArrowRight } from "lucide-react";
 import { mockMeters, mockReminders, mockBillPredictions, getTotalPredictedBill } from "@/lib/mockData";
 import { MeterCard } from "@/components/MeterCard";
 import { DeadlineAlert } from "@/components/DeadlineAlert";
+import { SmartInsights } from "@/components/SmartInsights";
+import { BillExplanation } from "@/components/BillExplanation";
 
 export default function HomePage() {
   const totalBill = getTotalPredictedBill();
@@ -78,6 +80,9 @@ export default function HomePage() {
         <ArrowRight className="h-5 w-5 text-cyan-600" />
       </Link>
 
+      {/* Smart Insights */}
+      <SmartInsights />
+
       {/* Meters */}
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Мої лічильники</h2>
@@ -126,6 +131,9 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Bill Explanation */}
+      <BillExplanation />
     </div>
   );
 }
