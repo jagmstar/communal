@@ -35,6 +35,15 @@ next-env.d.ts
 /android/app/build
 /android/.gradle
 /android/local.properties
-dev-stdout.log
+
+# build artifacts
+/dist/
+/build_output.txt
+dev_stdout.txt
+dev_stderr.txt
+*.apk
+
+# screenshots (temporary)
+current_screenshot.png
 dev-stderr.log
-.vercel
+dev-stdout.log
