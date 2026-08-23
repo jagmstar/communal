@@ -37,3 +37,4 @@ next-env.d.ts
 /android/local.properties
 dev-stdout.log
 dev-stderr.log
+.vercel

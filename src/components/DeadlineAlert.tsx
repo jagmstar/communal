@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertCircle, Bell } from "lucide-react";
+import { pluralize } from "@/lib/calculations";
 import { Reminder } from "@/lib/types";
 
 interface DeadlineAlertProps {
@@ -20,17 +21,18 @@ export function DeadlineAlert({ reminders }: DeadlineAlertProps) {
       {urgent.map((r) => (
         <div
           key={r.id}
-          className="flex items-center gap-3 rounded-2xl border border-orange-200 bg-orange-50 p-3 animate-fade-in dark:border-orange-900 dark:bg-orange-950/30"
+          role="alert"
+          className="flex items-center gap-3 rounded-2xl border border-danger/15 bg-danger-light p-3 animate-fade-in"
         >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900">
-            <AlertCircle className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-danger/10">
+            <AlertCircle className="h-5 w-5 text-danger" />
           </div>
           <div className="flex-1">
-            <p className="text-sm font-medium text-orange-900 dark:text-orange-200">
+            <p className="text-body font-medium text-danger">
               {r.serviceName} — передати до {new Date(r.dueDate).toLocaleDateString("uk-UA", { day: "numeric", month: "long" })}
             </p>
-            <p className="text-xs text-orange-700 dark:text-orange-300">
-              Залишилось {r.daysLeft} {r.daysLeft === 1 ? "день" : "дні"}
+            <p className="text-xs text-danger/80">
+              Залишилось {r.daysLeft} {pluralize(r.daysLeft, ["день", "дні", "днів"])}
             </p>
           </div>
         </div>
@@ -44,11 +46,11 @@ export function DeadlineAlert({ reminders }: DeadlineAlertProps) {
             <Bell className="h-4 w-4 text-muted-foreground" />
           </div>
           <div className="flex-1">
-            <p className="text-sm font-medium text-foreground">
-              {r.serviceName} — передати до {r.dueDate.slice(8)} числа
+            <p className="text-body font-medium text-foreground">
+              {r.serviceName} — передати до {new Date(r.dueDate).toLocaleDateString("uk-UA", { day: "numeric", month: "long" })}
             </p>
             <p className="text-xs text-muted-foreground">
-              Ще {r.daysLeft} днів
+              Ще {r.daysLeft} {pluralize(r.daysLeft, ["день", "дні", "днів"])}
             </p>
           </div>
         </div>

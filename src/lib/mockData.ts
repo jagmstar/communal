@@ -11,8 +11,8 @@ export const mockMeters: Meter[] = [
     lastReadingDate: "2026-07-31",
     submitDeadlineDay: 31,
     submitWindowStart: 25,
-    color: "#3b82f6",
-    colorLight: "#dbeafe",
+    color: "#0ea5e9",
+    colorLight: "#e0f2fe",
     icon: "droplet",
   },
   {
@@ -25,8 +25,8 @@ export const mockMeters: Meter[] = [
     lastReadingDate: "2026-07-31",
     submitDeadlineDay: 31,
     submitWindowStart: 25,
-    color: "#3b82f6",
-    colorLight: "#dbeafe",
+    color: "#0ea5e9",
+    colorLight: "#e0f2fe",
     icon: "droplet",
   },
   {
@@ -367,8 +367,8 @@ export function getSmartInsights(): {
       title: "📊 Газ: сезонний патерн",
       description: "Твій газ зростає на 40% у грудні-лютому. Запаси дров зараз = зекономиш ₴500/міс взимку.",
       icon: "lightbulb",
-      color: "#0891b2",
-      bgColor: "#ecfeff",
+      color: "#14b8a6",
+      bgColor: "#f0fdfa",
     });
   }
 

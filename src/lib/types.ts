@@ -1,4 +1,4 @@
-export type ServiceType = "water" | "electricity" | "gas" | "osbb" | "other";
+export type ServiceType = "water" | "electricity" | "gas" | "heating" | "osbb" | "other";
 
 export interface Meter {
   id: string;
@@ -22,7 +22,7 @@ export interface Reading {
   date: string;
   photoUrl?: string;
   ocrConfidence: number;
-  ocrEngine: "mlkit" | "azure" | "manual";
+  ocrEngine: "mlkit" | "azure" | "manual" | "tesseract";
   submittedToEps: boolean;
   submittedAt: string | null;
 }
@@ -56,6 +56,33 @@ export interface Reminder {
   urgent: boolean;
 }
 
+export interface Settings {
+  epsUsername: string | null;
+  epsAccountNumber: string | null;
+  notificationReading: boolean;
+  notificationPayment: boolean;
+  notificationTariff: boolean;
+  notificationAnomaly: boolean;
+  userName: string | null;
+  userAddress: string | null;
+}
+
+export interface NotificationSettings {
+  reading: boolean;
+  payment: boolean;
+  tariff: boolean;
+  anomaly: boolean;
+}
+
+export interface UserSettings {
+  epsUsername: string | null;
+  epsAccountNumber: string | null;
+  epsConnected: boolean;
+  notification: NotificationSettings;
+  userName: string;
+  userAddress: string;
+}
+
 export const SERVICE_CONFIG: Record<ServiceType, {
   label: string;
   labelUa: string;
@@ -69,10 +96,10 @@ export const SERVICE_CONFIG: Record<ServiceType, {
     label: "Water",
     labelUa: "Вода",
     unit: "м³",
-    color: "#3b82f6",
-    colorLight: "#dbeafe",
+    color: "#0ea5e9",
+    colorLight: "#e0f2fe",
     icon: "droplet",
-    gradient: "from-blue-500 to-cyan-500",
+    gradient: "from-primary-500 to-primary-600",
   },
   electricity: {
     label: "Electricity",
@@ -90,16 +117,25 @@ export const SERVICE_CONFIG: Record<ServiceType, {
     color: "#f97316",
     colorLight: "#ffedd5",
     icon: "flame",
-    gradient: "from-orange-500 to-red-500",
+    gradient: "from-secondary-500 to-secondary-400",
+  },
+  heating: {
+    label: "Heating",
+    labelUa: "Опалення",
+    unit: "Гкал",
+    color: "#ef4444",
+    colorLight: "#fee2e2",
+    icon: "thermometer",
+    gradient: "from-heating to-heating",
   },
   osbb: {
     label: "OSBB",
     labelUa: "ОСББ",
     unit: "₴",
-    color: "#8b5cf6",
-    colorLight: "#ede9fe",
+    color: "#64748b",
+    colorLight: "#f1f5f9",
     icon: "building",
-    gradient: "from-violet-500 to-purple-500",
+    gradient: "from-osbb to-osbb",
   },
   other: {
     label: "Other",

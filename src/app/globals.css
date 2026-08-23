@@ -1,33 +1,77 @@
 @import "tailwindcss";
 
 :root {
-  --background: #fafaf9;
-  --foreground: #1c1917;
-  --card: #ffffff;
-  --card-foreground: #1c1917;
-  --border: #e7e5e4;
-  --muted: #f5f5f4;
-  --muted-foreground: #78716c;
-  --primary: #0891b2;
-  --primary-foreground: #ffffff;
-  --accent: #ecfeff;
-  --accent-foreground: #0e7490;
+  /* Primary — Warm Teal */
+  --primary-50: #f0fdfa;
+  --primary-100: #ccfbf1;
+  --primary-200: #99f6e4;
+  --primary-300: #5eead4;
+  --primary-400: #2dd4bf;
+  --primary-500: #14b8a6;
+  --primary-600: #0d9488;
+  --primary-700: #0f766e;
+  --primary-800: #115e59;
+  --primary-900: #134e4a;
 
-  /* Service colors */
-  --water: #3b82f6;
-  --water-light: #dbeafe;
+  /* Secondary — Terracotta */
+  --secondary-50: #fff7ed;
+  --secondary-100: #ffedd5;
+  --secondary-200: #fed7aa;
+  --secondary-300: #fdba74;
+  --secondary-400: #fb923c;
+  --secondary-500: #f97316;
+  --secondary-600: #ea580c;
+  --secondary-700: #c2410c;
+
+  /* Utility colors */
+  --water: #0ea5e9;
+  --water-light: #e0f2fe;
+  --water-dark: #075985;
   --electricity: #f59e0b;
   --electricity-light: #fef3c7;
+  --electricity-dark: #92400e;
   --gas: #f97316;
   --gas-light: #ffedd5;
-  --osbb: #8b5cf6;
-  --osbb-light: #ede9fe;
-  --other: #64748b;
-  --other-light: #f1f5f9;
+  --gas-dark: #9a3412;
+  --heating: #ef4444;
+  --heating-light: #fee2e2;
+  --heating-dark: #991b1b;
+  --osbb: #64748b;
+  --osbb-light: #f1f5f9;
+  --osbb-dark: #334155;
 
-  --success: #22c55e;
+  /* Surfaces */
+  --background: #fafaf9;
+  --surface: #ffffff;
+  --surface-elevated: #ffffff;
+  --foreground: #1c1917;
+  --muted-foreground: #78716c;
+  --disabled: #d6d3d1;
+  --disabled-foreground: #a8a29e;
+  --border: #e7e5e4;
+  --border-strong: #d6d3d1;
+
+  /* Status */
+  --success: #16a34a;
+  --success-light: #dcfce7;
   --warning: #f59e0b;
-  --danger: #ef4444;
+  --warning-light: #fef3c7;
+  --danger: #dc2626;
+  --danger-light: #fee2e2;
+  --info: #0ea5e9;
+  --info-light: #e0f2fe;
+
+  /* Semantic aliases for Tailwind v4 theme */
+  --primary: var(--primary-500);
+  --primary-foreground: #ffffff;
+  --secondary: var(--secondary-500);
+  --secondary-foreground: #ffffff;
+  --accent: var(--primary-100);
+  --accent-foreground: var(--primary-700);
+  --card: var(--surface);
+  --card-foreground: var(--foreground);
+  --muted: #f5f5f4;
+  --ring: var(--primary-300);
 }
 
 @theme inline {
@@ -40,58 +84,96 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-disabled: var(--disabled);
+  --color-disabled-foreground: var(--disabled-foreground);
+  --color-border-strong: var(--border-strong);
+  --color-ring: var(--ring);
+
+  --color-primary-50: var(--primary-50);
+  --color-primary-100: var(--primary-100);
+  --color-primary-200: var(--primary-200);
+  --color-primary-300: var(--primary-300);
+  --color-primary-400: var(--primary-400);
+  --color-primary-500: var(--primary-500);
+  --color-primary-600: var(--primary-600);
+  --color-primary-700: var(--primary-700);
+  --color-primary-800: var(--primary-800);
+  --color-primary-900: var(--primary-900);
+
+  --color-secondary-50: var(--secondary-50);
+  --color-secondary-100: var(--secondary-100);
+  --color-secondary-200: var(--secondary-200);
+  --color-secondary-300: var(--secondary-300);
+  --color-secondary-400: var(--secondary-400);
+  --color-secondary-500: var(--secondary-500);
+  --color-secondary-600: var(--secondary-600);
+  --color-secondary-700: var(--secondary-700);
+
   --color-water: var(--water);
   --color-water-light: var(--water-light);
+  --color-water-dark: var(--water-dark);
   --color-electricity: var(--electricity);
   --color-electricity-light: var(--electricity-light);
+  --color-electricity-dark: var(--electricity-dark);
   --color-gas: var(--gas);
   --color-gas-light: var(--gas-light);
+  --color-gas-dark: var(--gas-dark);
+  --color-heating: var(--heating);
+  --color-heating-light: var(--heating-light);
+  --color-heating-dark: var(--heating-dark);
   --color-osbb: var(--osbb);
   --color-osbb-light: var(--osbb-light);
-  --color-other: var(--other);
-  --color-other-light: var(--other-light);
+  --color-osbb-dark: var(--osbb-dark);
+
   --color-success: var(--success);
+  --color-success-light: var(--success-light);
   --color-warning: var(--warning);
+  --color-warning-light: var(--warning-light);
   --color-danger: var(--danger);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-danger-light: var(--danger-light);
+  --color-info: var(--info);
+  --color-info-light: var(--info-light);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #fafaf9;
-    --card: #1c1917;
-    --card-foreground: #fafaf9;
-    --border: #292524;
-    --muted: #1c1917;
-    --muted-foreground: #a8a29e;
-    --primary: #06b6d4;
-    --primary-foreground: #0a0a0a;
-    --accent: #0e7490;
-    --accent-foreground: #ecfeff;
-
-    --water-light: #1e3a5f;
-    --electricity-light: #422006;
-    --gas-light: #431407;
-    --osbb-light: #2e1065;
-    --other-light: #1e293b;
-  }
+  --font-sans: var(--font-inter), "Roboto", system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-ibm-plex-mono), ui-monospace, monospace;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+  text-rendering: optimizeLegibility;
+}
+
+/* Better text wrapping for Ukrainian headings */
+h1, h2, h3 {
+  text-wrap: pretty;
+}
+
+/* Tabular numbers for financial data */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "kern" 1;
 }
 
 /* Smooth scroll */
 html {
   scroll-behavior: smooth;
+}
+
+/* Global focus-visible for keyboard accessibility */
+*:focus-visible {
+  outline: 2px solid var(--primary-500);
+  outline-offset: 2px;
 }
 
 /* Custom scrollbar */
@@ -126,6 +208,15 @@ html {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
+@keyframes scan-line {
+  0% { transform: translateY(0); opacity: 0.4; }
+  50% { transform: translateY(100%); opacity: 0.8; }
+  100% { transform: translateY(0); opacity: 0.4; }
+}
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
 
 .animate-fade-in {
   animation: fade-in 0.4s ease-out;
@@ -136,29 +227,37 @@ html {
 .animate-pulse-soft {
   animation: pulse-soft 2s ease-in-out infinite;
 }
+.animate-scale-in {
+  animation: scale-in 0.3s ease-out;
+}
+.animate-scan {
+  animation: scan-line 2s ease-in-out infinite;
+}
+
+/* Stagger delays for list animations */
+.stagger-1 { animation-delay: 0.05s; animation-fill-mode: both; }
+.stagger-2 { animation-delay: 0.1s; animation-fill-mode: both; }
+.stagger-3 { animation-delay: 0.15s; animation-fill-mode: both; }
+.stagger-4 { animation-delay: 0.2s; animation-fill-mode: both; }
+.stagger-5 { animation-delay: 0.25s; animation-fill-mode: both; }
 
 /* Glass effect */
 .glass {
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
 
-/* Gradient text */
-.gradient-text {
-  background: linear-gradient(135deg, #0891b2, #0e7490);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
 /* Card hover */
 .card-hover {
-  transition: all 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 .card-hover:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 12px 24px rgba(28, 25, 23, 0.06);
+}
+.card-hover:active {
+  transform: translateY(0);
 }
 
 /* Shimmer loading */
@@ -166,4 +265,37 @@ html {
   background: linear-gradient(90deg, var(--muted) 25%, var(--border) 50%, var(--muted) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
+}
+
+/* Body text utility — NFR-7 requires minimum 15px body text */
+.text-body {
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* Safe areas */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.page-container {
+  padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-slide-up,
+  .animate-pulse-soft,
+  .animate-scale-in,
+  .animate-scan,
+  .card-hover:hover {
+    animation: none;
+    transform: none;
+  }
+  .shimmer {
+    animation: none;
+  }
 }

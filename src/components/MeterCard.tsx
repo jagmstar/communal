@@ -1,7 +1,7 @@
 "use client";
 
-import { Droplet, Zap, Flame, Building, Receipt, ChevronRight } from "lucide-react";
-import { Meter, ServiceType } from "@/lib/types";
+import { Droplet, Zap, Flame, Building, Receipt, Thermometer, ChevronRight } from "lucide-react";
+import { Meter } from "@/lib/types";
 
 const iconMap: Record<string, React.ComponentType<{ className?: string; strokeWidth?: number }>> = {
   droplet: Droplet,
@@ -9,6 +9,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string; strokeWi
   flame: Flame,
   building: Building,
   receipt: Receipt,
+  thermometer: Thermometer,
 };
 
 interface MeterCardProps {
@@ -20,15 +21,17 @@ interface MeterCardProps {
 export function MeterCard({ meter, onClick, compact = false }: MeterCardProps) {
   const Icon = iconMap[meter.icon] || Receipt;
   const lastReading = meter.lastReading ?? 0;
-  const formattedReading = meter.serviceType === "electricity" 
-    ? lastReading.toLocaleString("uk-UA") 
+  const formattedReading = meter.serviceType === "electricity"
+    ? lastReading.toLocaleString("uk-UA")
     : lastReading.toFixed(2);
 
   if (compact) {
     return (
       <button
         onClick={onClick}
-        className="card-hover flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-3 text-left"
+        role="button"
+        aria-label={`${meter.serviceName}, лічильник номер ${meter.meterNumber}, останній показник ${formattedReading} ${meter.unit}`}
+        className="card-hover flex w-full items-center gap-3 rounded-2xl border border-border bg-surface p-3 text-left transition-colors hover:border-primary-300 focus:border-primary-500 focus:ring-4 focus:ring-primary-100 focus:outline-none"
       >
         <div
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
@@ -37,11 +40,11 @@ export function MeterCard({ meter, onClick, compact = false }: MeterCardProps) {
           <Icon className="h-5 w-5" strokeWidth={2} />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-foreground">{meter.serviceName}</p>
+          <p className="truncate text-body font-medium text-foreground">{meter.serviceName}</p>
           <p className="text-xs text-muted-foreground">№{meter.meterNumber}</p>
         </div>
         <div className="text-right">
-          <p className="text-sm font-semibold tabular-nums">{formattedReading}</p>
+          <p className="text-body font-semibold tabular-nums">{formattedReading}</p>
           <p className="text-xs text-muted-foreground">{meter.unit}</p>
         </div>
       </button>
@@ -51,7 +54,9 @@ export function MeterCard({ meter, onClick, compact = false }: MeterCardProps) {
   return (
     <button
       onClick={onClick}
-      className="card-hover w-full overflow-hidden rounded-2xl border border-border bg-card text-left"
+      role="button"
+      aria-label={`${meter.serviceName}, лічильник номер ${meter.meterNumber}, останній показник ${formattedReading} ${meter.unit}`}
+      className="card-hover w-full overflow-hidden rounded-2xl border border-border bg-surface text-left transition-colors hover:border-primary-300 focus:border-primary-500 focus:ring-4 focus:ring-primary-100 focus:outline-none"
     >
       <div className="flex items-start gap-3 p-4">
         <div
@@ -72,12 +77,12 @@ export function MeterCard({ meter, onClick, compact = false }: MeterCardProps) {
         <div>
           <p className="text-xs text-muted-foreground">Останній показник</p>
           <p className="text-lg font-bold tabular-nums text-foreground">
-            {formattedReading} <span className="text-sm font-normal text-muted-foreground">{meter.unit}</span>
+            {formattedReading} <span className="text-body font-normal text-muted-foreground">{meter.unit}</span>
           </p>
         </div>
         <div className="text-right">
           <p className="text-xs text-muted-foreground">Передати до</p>
-          <p className="text-sm font-medium text-foreground">{meter.submitDeadlineDay} числа</p>
+          <p className="text-body font-medium text-foreground">{meter.submitDeadlineDay} числа</p>
         </div>
       </div>
     </button>

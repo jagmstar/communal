@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Notification icon: white silhouette on transparent background.
+     Android requires notification small icons to be white-on-transparent
+     for proper display in the status bar. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Bell icon for bill reminders -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M12,2C10.34,2 9,3.34 9,5L9,5.29C6.61,6.15 5,8.39 5,11L5,16L3,18L3,19L21,19L21,18L19,16L19,11C19,8.39 17.39,6.15 15,5.29L15,5C15,3.34 13.66,2 12,2ZM10,21C10,22.1 10.9,23 12,23C13.1,23 14,22.1 14,21L10,21Z" />
+</vector>

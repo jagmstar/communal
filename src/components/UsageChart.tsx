@@ -8,9 +8,9 @@ interface UsageChartProps {
   showCost?: boolean;
 }
 
-export function UsageChart({ data, color = "#0891b2", showCost = false }: UsageChartProps) {
+export function UsageChart({ data, color = "#14b8a6", showCost = false }: UsageChartProps) {
   return (
-    <div className="h-[160px] w-full">
+    <div className="h-[160px] w-full" role="img" aria-label={`Графік витрати за ${data.length} місяців`}>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -20 }}>
           <XAxis
@@ -26,14 +26,14 @@ export function UsageChart({ data, color = "#0891b2", showCost = false }: UsageC
             width={40}
           />
           <Tooltip
-            cursor={{ fill: "rgba(0,0,0,0.04)" }}
+            cursor={{ fill: "rgba(28, 25, 23, 0.04)" }}
             contentStyle={{
               borderRadius: "12px",
               border: "1px solid #e7e5e4",
               fontSize: "12px",
               padding: "8px 12px",
             }}
-            formatter={(value: any) => [
+            formatter={(value) => [
               showCost ? `${value} ₴` : `${value}`,
               showCost ? "Вартість" : "Витрата",
             ]}
