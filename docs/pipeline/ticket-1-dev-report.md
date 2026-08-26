@@ -2,8 +2,43 @@
 
 - **GitHub issue:** [jagmstar/communal#1](https://github.com/jagmstar/communal/issues/1)
 - **Implemented by:** Dev twin
-- **Dev date:** 2026-08-26
+- **Dev date:** 2026-08-26 (original), revised 2026-08-26 (QA re-submission per REJECT verdict)
 - **Baseline:** `npx vitest run src` — 104/104 passed (2026-08-26, pre-change), `npm run build` — clean
+
+## Revision note (post-QA-REJECT re-submission)
+
+Commit `30a3628` was **REJECTED** by blind QA (`qa/ticket-1-verdict.md`, commit `1aa54d1`).
+Two findings required a fix before re-submission:
+
+- **F1 (HIGH):** `ROLLOVER_MAX_RATIO = 0.5` was far too loose. QA independently re-ran the
+  real route handler on the ticket's own headline motivating example, `12453 → 1453`
+  (an OCR-dropped leading digit), with `allowRollover: true`, and got **201 (accepted)**
+  — not 400 as the original dev report and issue comment both claimed. **Correct
+  arithmetic:** `1453 / 12453 = 0.1167`, so the ratio is ~11.7% and the **drop** is
+  `1 − 0.1167 = 88.3%`. The original report inverted this (labeled 88.3% as "~9%" and
+  called it "well above the 50% threshold" when it is in fact well *below* it — 88.3% <
+  50% is what made `isPlausibleRollover` return `true`). This revision fixes both the
+  code and that arithmetic error.
+- **F2 (MEDIUM, R294-class):** `isPlausibleRollover`/`ROLLOVER_MAX_RATIO` were duplicated
+  verbatim in `src/lib/api-utils.ts` (server) and `src/app/submit/page.tsx` (client),
+  with no shared module and no test coupling the two copies — a drift risk if either
+  copy were changed without the other.
+
+**Fix applied:**
+1. Extracted the predicate into a new, dependency-free shared module,
+   `src/lib/rollover.ts` (no `next/server`, no React — safe to import from both a
+   Next.js route handler and a `"use client"` component). Both `api-utils.ts` (via
+   re-export) and `submit/page.tsx` (via direct import) now use this single copy —
+   duplication eliminated, not just cross-commented.
+2. Tightened `ROLLOVER_MAX_RATIO` from `0.5` to **`0.05`** — the new value must now be
+   **less than 5% of the last reading (i.e. a drop of more than 95%)** to be honored as
+   a plausible rollover, instead of merely "more than half was lost." See
+   `src/lib/rollover.ts` for the full inline rationale. Re-verified: `12453 → 1453`
+   (88.3% drop) is now correctly **rejected (400)** even with `allowRollover: true`,
+   while a genuine dial wraparound (e.g. `99998 → 5`, a >99.99% drop) is still
+   **accepted (201)**.
+3. Added regression tests for both the previously-broken example and a shared-module
+   equivalence test (see "Test numbers" below).
 
 > Note on the 104 vs the intake's "94" baseline: the intake doc's 94/94 count was
 > taken before ticket #3 (`fix(#3): migrate deprecated middleware.ts to proxy.ts`,
@@ -39,28 +74,42 @@
 
 ### AC-3 — Meter rollover is not blocked, via an explicit documented override
 **ЗРОБИВ**, with a documented, scoped mechanism (Dev decision per the ticket's own note
-that AC-3 mechanism/threshold is a Dev call):
+that AC-3 mechanism/threshold is a Dev call). **Revised post-QA-REJECT** (see "Revision
+note" above) — threshold tightened and predicate deduplicated:
 - `POST /api/readings` accepts an optional boolean `allowRollover` field in the request
   body.
 - The override is honored **only if the drop is "plausible" as a real dial rollover**,
-  not just any drop: `isPlausibleRollover(newValue, lastReading)` in
-  `src/lib/api-utils.ts` requires `newValue < lastReading * ROLLOVER_MAX_RATIO`
-  (`ROLLOVER_MAX_RATIO = 0.5`, i.e. the new value must be less than half the last
-  reading). This prevents `allowRollover: true` from being used to wave through an
-  ordinary typo (e.g. `12453 → 1453` is only a ~9% drop, well above the 50% threshold,
-  so it is still rejected even with the flag set).
+  not just any drop: `isPlausibleRollover(newValue, lastReading)`, now defined once in
+  the shared module `src/lib/rollover.ts` and re-exported from `src/lib/api-utils.ts`,
+  requires `newValue < lastReading * ROLLOVER_MAX_RATIO` with **`ROLLOVER_MAX_RATIO =
+  0.05`** — i.e. the new value must be **less than 5% of the last reading (a drop of
+  more than 95%)**. This is a deliberate tightening from the original `0.5`: QA
+  demonstrated that `0.5` accepted the ticket's own headline OCR-misread example
+  (`12453 → 1453`, an 88.3% drop) as a "plausible rollover", which defeats the purpose
+  of AC-1/AC-3. A genuine mechanical/digital dial wraparound leaves a residual value
+  that is essentially unrelated in magnitude to the prior reading (a >99.9% drop, e.g.
+  `99998 → 5`), so `0.05` sits comfortably below every realistic single-digit-loss OCR
+  failure mode while remaining well under a genuine wraparound's drop. Full rationale is
+  documented inline in `src/lib/rollover.ts`.
 - **Why a ratio threshold and not exact dial-capacity math:** the `meters` table/schema
   has no per-meter "dial capacity" (max digits before wraparound) column, and adding one
   is a migration — explicitly out of scope per the ticket ("no schema migration required
   for the core fix", rollover "may push this to M" but a full wizard is explicitly
   out-of-scope). A ratio-based plausibility gate is the smallest correct mechanism that
   satisfies the AC's literal requirement ("a rollover test case MUST exist and pass").
-- Tests:
+- Tests (in `src/app/api/__tests__/readings.test.ts` and new `src/lib/__tests__/rollover.test.ts`):
   - `"accepts a meter rollover when allowRollover is set and the drop is large (AC-3)"`
     (99950 → 12, `allowRollover: true` → 201)
   - `"rejects a small drop even when allowRollover is set (typo, not a real rollover)"`
     (200 → 150 with `allowRollover: true` → still 400)
   - `"rejects a large drop without the allowRollover flag"` (99950 → 12, no flag → 400)
+  - **NEW:** `"F1 regression: rejects the ticket's own headline OCR-misread example
+    (12453 -> 1453, an 88.3% drop) EVEN WITH allowRollover set"` → now correctly 400
+  - **NEW:** `"F1 regression: accepts a genuine rollover on a 5-digit meter (99998 -> 5,
+    a >99.99% drop) WITH allowRollover set"` → 201
+  - **NEW (`rollover.test.ts`):** unit tests for `isPlausibleRollover`/`ROLLOVER_MAX_RATIO`
+    directly, including a test asserting the `api-utils.ts` re-export is the exact same
+    function/constant reference as the shared module (F2 — proves no drift is possible)
 
 ### AC-4 — `src/app/submit/page.tsx` submit button is actually disabled, not just warned
 **ЗРОБИВ** (client-side nicety, as scoped — the real enforcement is AC-1/AC-3 server-side).
@@ -146,37 +195,43 @@ that AC-3 mechanism/threshold is a Dev call):
 
 | File | Change |
 |---|---|
-| `src/lib/api-utils.ts` | New `ERRORS.READING_BELOW_LAST`; new `ROLLOVER_MAX_RATIO` const + `isPlausibleRollover()` helper |
+| `src/lib/api-utils.ts` | New `ERRORS.READING_BELOW_LAST`; `ROLLOVER_MAX_RATIO`/`isPlausibleRollover` now **re-exported** from shared `src/lib/rollover.ts` (was a local definition; deduped per QA F2) |
+| `src/lib/rollover.ts` | **NEW** (this revision) — shared, dependency-free module holding `ROLLOVER_MAX_RATIO = 0.05` and `isPlausibleRollover()`, imported by both server (`api-utils.ts`) and client (`submit/page.tsx`) |
 | `src/lib/db/queries.ts` | New `getMeterById(meterId)` query function |
 | `src/app/api/readings/route.ts` | POST handler: fetch meter, reject regressive value unless plausible-rollover override given |
-| `src/app/api/__tests__/readings.test.ts` | Mock `getMeterById`; 8 new tests for AC-1/AC-3 |
+| `src/app/api/__tests__/readings.test.ts` | Mock `getMeterById`; 8 tests for AC-1/AC-3 + **2 new F1-regression tests this revision** |
+| `src/lib/__tests__/rollover.test.ts` | **NEW** (this revision) — unit tests for the shared predicate, including an F2 equivalence test |
 | `src/lib/calculations.ts` | New `nonNegativeDelta()` guard, applied in 3 functions per AC-6 |
 | `src/lib/__tests__/calculations.test.ts` | 3 new tests for AC-6 |
-| `src/app/submit/page.tsx` | Local rollover-plausibility check, `rolloverAcknowledged` state, submit button actually disabled, checkbox UI for rollover ack, `handleConfirm` guard + `allowRollover` passthrough |
+| `src/app/submit/page.tsx` | Now **imports** `isPlausibleRollover` from `@/lib/rollover` (was a local duplicate copy; deduped per QA F2); `rolloverAcknowledged` state, submit button actually disabled, checkbox UI for rollover ack, `handleConfirm` guard + `allowRollover` passthrough |
 | `src/lib/api.ts` | `postReading()` accepts optional `allowRollover` field |
 
 ## Test numbers
 
-| | Before | After |
-|---|---|---|
-| `npx vitest run src` (7 files) | 104 passed, 0 failed | **115 passed, 0 failed** |
-| New tests added | — | +11 (8 readings.test.ts, 3 calculations.test.ts) |
-| `npm run build` (with pre-existing unrelated `qa/` scaffold present) | fails (pre-existing, unrelated TS error in untracked `qa/ticket-3-killtests/qa-killtest-behavior.test.ts`) | same pre-existing failure, unchanged by this ticket |
-| `npm run build` (scaffold temporarily removed to isolate) | clean | **clean** (verified identical clean result before and after this ticket's changes) |
+| | Original baseline | After original patch (30a3628, REJECTED) | After this revision |
+|---|---|---|---|
+| `npx vitest run src` | 104 passed, 0 failed | 115 passed, 0 failed | **125 passed, 0 failed** |
+| New tests added this revision | — | — | +10 (2 in `readings.test.ts`, 8 in new `rollover.test.ts`) |
+| `npm run build` (with pre-existing unrelated `qa/` scaffold present) | fails (pre-existing, unrelated TS error in untracked `qa/ticket-3-killtests/qa-killtest-behavior.test.ts`) | same pre-existing failure, unchanged | same pre-existing failure, unchanged by this ticket's `src/` code |
+| QA's own kill-tests (`qa/ticket-1-killtests/`) | — | 9 passed, 0 failed (all defused per QA's original verdict) | Re-run: the one test that asserted the OLD 201/buggy behavior (`qa-finding-ac3-threshold.test.ts`, "…independently observed to actually be 201…") now correctly fails because the fix makes it 400 — that test's own docstring says it documents "OBSERVED (not desired)" behavior, so this is the fix working as intended, not a regression |
 
 ## Limitations / scope decisions
 
-1. **Rollover threshold (`ROLLOVER_MAX_RATIO = 0.5`) is a judgment call**, not derived
-   from any real meter's dial capacity (the schema doesn't store one). Documented inline
-   in `api-utils.ts`. A meter that drops by, say, exactly 51% due to a genuine typo would
-   still be rejected (correct — that's not plausible as a 5-digit rollover), but a meter
-   that drops by 49% due to a rollover on a very-low-capacity dial would need a different
-   mechanism. Out of scope per the ticket ("polished meter-rollover UI wizard" excluded).
-2. **`isPlausibleRollover` is duplicated** in `src/app/submit/page.tsx` instead of
-   imported from `src/lib/api-utils.ts`, because `api-utils.ts` imports `next/server`
-   (`NextResponse`), which cannot be bundled into a `"use client"` component. Both copies
-   are small (4 lines) and commented to point at each other; a shared client-safe utils
-   module would be a reasonable follow-up refactor but is not required by any AC.
+1. **Rollover threshold (`ROLLOVER_MAX_RATIO = 0.05`, revised from `0.5` per QA F1) is
+   still a judgment call**, not derived from any real meter's dial capacity (the schema
+   doesn't store one). Documented inline in `src/lib/rollover.ts`. A genuine rollover
+   defined as "new value < 5% of last reading" comfortably covers real dial wraparounds
+   (>99.9% drop) while rejecting the worst realistic single-leading-digit OCR/fat-finger
+   loss (up to ~90% drop for a 6-digit reading). If a future ticket adds a stored
+   per-meter digit capacity, `rollover.ts` is the single place to upgrade to an exact
+   `newValue < lastReading - capacity` check. Out of scope here per the ticket ("polished
+   meter-rollover UI wizard" excluded).
+2. ~~**`isPlausibleRollover` is duplicated**~~ **RESOLVED this revision (QA F2):**
+   extracted into shared, dependency-free `src/lib/rollover.ts`, imported by both
+   `src/lib/api-utils.ts` (re-export) and `src/app/submit/page.tsx` (direct import) — no
+   more duplicate copies to drift apart. A new equivalence test in
+   `src/lib/__tests__/rollover.test.ts` asserts the `api-utils.ts` re-export is the exact
+   same function/constant reference as the shared module.
 3. **No component/E2E test for AC-4** — pre-authorized by the ticket itself; a manual QA
    script is provided above. Confirmed no test infra (`@testing-library`, `jsdom`) exists
    in the repo at merge time.

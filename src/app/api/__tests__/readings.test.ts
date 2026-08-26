@@ -407,6 +407,59 @@ describe("POST /api/readings", () => {
     expect(json.error).toContain("менший за попередній");
   });
 
+  // ------------------------------------------------------------------
+  // QA verdict (qa/ticket-1-verdict.md, Finding F1) regression coverage:
+  // ROLLOVER_MAX_RATIO tightened from 0.5 to 0.05 (require a >95% drop,
+  // not merely >50%) so the ticket's own headline OCR-misread example is
+  // actually rejected even with allowRollover set. See src/lib/rollover.ts
+  // for the full rationale.
+  // ------------------------------------------------------------------
+
+  it("F1 regression: rejects the ticket's own headline OCR-misread example (12453 -> 1453, an 88.3% drop) EVEN WITH allowRollover set", async () => {
+    const meterWith12453: Meter = { ...mockMeter, lastReading: 12453 };
+    (getMeterById as any).mockResolvedValue(meterWith12453);
+
+    const req = makeRequest("http://localhost:3000/api/readings", {
+      method: "POST",
+      body: {
+        meterId: mockMeter.id,
+        value: 1453, // 1453/12453 = 0.1167 -> an 88.3% drop, NOT a genuine rollover
+        date: "2026-08-15",
+        allowRollover: true,
+      },
+    });
+    const response = await POST(req);
+    const json = await response.json();
+
+    // Under the old ROLLOVER_MAX_RATIO=0.5, 1453 < 12453*0.5 was true, so this was
+    // wrongly accepted (201) — QA's kill-test confirmed this end-to-end. Under the
+    // new ROLLOVER_MAX_RATIO=0.05, 1453 is NOT < 12453*0.05 (=622.65), so it is
+    // correctly rejected.
+    expect(response.status).toBe(400);
+    expect(json.error).toContain("менший за попередній");
+    expect(createReading).not.toHaveBeenCalled();
+  });
+
+  it("F1 regression: accepts a genuine rollover on a 5-digit meter (99998 -> 5, a >99.99% drop) WITH allowRollover set", async () => {
+    const fiveDigitMeter: Meter = { ...mockMeter, lastReading: 99998 };
+    (getMeterById as any).mockResolvedValue(fiveDigitMeter);
+    (createReading as any).mockResolvedValue({ ...mockReading, value: 5 });
+
+    const req = makeRequest("http://localhost:3000/api/readings", {
+      method: "POST",
+      body: {
+        meterId: mockMeter.id,
+        value: 5, // dial wrapped from 99998 -> 00005, a >99.99% drop
+        date: "2026-08-15",
+        allowRollover: true,
+      },
+    });
+    const response = await POST(req);
+
+    expect(response.status).toBe(201);
+    expect(createReading).toHaveBeenCalled();
+  });
+
   it("skips the regression check when the meter has no prior reading yet", async () => {
     const freshMeter: Meter = { ...mockMeter, lastReading: null, lastReadingDate: null };
     (getMeterById as any).mockResolvedValue(freshMeter);

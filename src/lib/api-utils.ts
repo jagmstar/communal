@@ -148,31 +148,13 @@ export function validateEnum<T extends string>(
 // ============================================
 
 /**
- * A meter rollover is only accepted as legitimate when the new value drops to
- * LESS than this fraction of the last known reading. A mechanical dial rollover
- * (e.g. 99999 -> 00012) produces a drop close to 100%. A fat-fingered digit or a
- * misread OCR digit (e.g. 12453 -> 1453) typically produces a much smaller relative
- * drop. Requiring a large drop before honoring the `allowRollover` override prevents
- * the override from being used to paper over ordinary typos.
- *
- * This threshold is a Dev decision (see ticket #1 AC-3) — there is no per-meter
- * "dial capacity" stored in the schema, so an exact rollover-math check (e.g.
- * `lastReading + (ROLLOVER_CAPACITY - lastReading) + newValue`) is out of scope.
+ * Re-exported from the shared, dependency-free `src/lib/rollover.ts` module (ticket #1
+ * follow-up per QA verdict `qa/ticket-1-verdict.md`, Finding F2). This used to be a local
+ * definition duplicated byte-for-byte in `src/app/submit/page.tsx`; both call sites now
+ * import the SAME implementation from `rollover.ts` instead of drifting independently.
+ * See `rollover.ts` for the full rationale on the threshold value (Finding F1).
  */
-export const ROLLOVER_MAX_RATIO = 0.5;
-
-/**
- * Determine whether a new reading value below the meter's last known reading
- * looks like a plausible meter rollover (dial wrap-around) rather than an
- * ordinary typo/OCR misread.
- * @param newValue - The newly submitted reading value
- * @param lastReading - The meter's current last known reading
- * @returns true if the drop is large enough to plausibly be a rollover
- */
-export function isPlausibleRollover(newValue: number, lastReading: number): boolean {
-  if (lastReading <= 0) return false;
-  return newValue < lastReading * ROLLOVER_MAX_RATIO;
-}
+export { ROLLOVER_MAX_RATIO, isPlausibleRollover } from "./rollover";
 
 // ============================================
 // Error message constants (Ukrainian)

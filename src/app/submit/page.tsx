@@ -17,23 +17,19 @@ import { MeterCard } from "@/components/MeterCard";
 import { ErrorState } from "@/components/ErrorState";
 import { LoadingState } from "@/components/LoadingState";
 import { isNative, takePhoto } from "@/lib/capacitor";
+import { isPlausibleRollover } from "@/lib/rollover";
 import type { Meter } from "@/lib/types";
 
 type Step = "select" | "photo" | "ocr" | "confirm" | "submitting" | "done";
 
 type OcrStatus = "idle" | "processing" | "success" | "failed" | "unavailable";
 
-/**
- * Mirrors ROLLOVER_MAX_RATIO / isPlausibleRollover in src/lib/api-utils.ts
- * (ticket #1, AC-3/AC-4). Kept as a local client-side copy rather than a
- * shared import because api-utils.ts pulls in `next/server` (NextResponse),
- * which is not safe to bundle into a "use client" component.
- */
-const ROLLOVER_MAX_RATIO = 0.5;
-function isPlausibleRollover(newValue: number, lastReading: number): boolean {
-  if (lastReading <= 0) return false;
-  return newValue < lastReading * ROLLOVER_MAX_RATIO;
-}
+// isPlausibleRollover (ticket #1, AC-3/AC-4) now comes from the shared, dependency-free
+// `src/lib/rollover.ts` module instead of a local duplicate copy. See that module for the
+// full rationale (QA verdict qa/ticket-1-verdict.md, Findings F1 + F2). `rollover.ts`
+// imports nothing from `next/server`, so it is safe to bundle into this "use client"
+// component — the previous local copy existed only to work around a duplication the
+// shared module now eliminates.
 
 export default function SubmitPage() {
   const router = useRouter();
