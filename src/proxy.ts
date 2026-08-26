@@ -1,5 +1,5 @@
 /**
- * Next.js Middleware — CORS preflight & basic rate limiting
+ * Next.js Proxy — CORS preflight & basic rate limiting
  *
  * Handles OPTIONS preflight requests for all /api/* routes.
  * Implements a simple in-memory rate limiter for POST/PUT write operations.
@@ -47,10 +47,10 @@ function cleanupExpiredEntries() {
 }
 
 // ============================================
-// Middleware
+// Proxy
 // ============================================
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Only apply to API routes
