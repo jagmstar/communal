@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/lib/db/queries", () => ({
   getReadings: vi.fn(),
   createReading: vi.fn(),
+  getMeterById: vi.fn(),
 }));
 
 // Mock the db client to avoid DATABASE_URL requirement
@@ -12,8 +13,8 @@ vi.mock("@/lib/db/client", () => ({
 }));
 
 import { GET, POST } from "../readings/route";
-import { getReadings, createReading } from "@/lib/db/queries";
-import type { Reading } from "@/lib/types";
+import { getReadings, createReading, getMeterById } from "@/lib/db/queries";
+import type { Reading, Meter } from "@/lib/types";
 
 // Helper: create a NextRequest-like object
 function makeRequest(
@@ -254,5 +255,173 @@ describe("POST /api/readings", () => {
 
     expect(response.status).toBe(404);
     expect(json.error).toContain("Лічильник не знайдено");
+  });
+
+  // ============================================
+  // Reading-below-last-reading validation (ticket #1)
+  // ============================================
+
+  const mockMeter: Meter = {
+    id: "a1b2c3d4-0001-4000-8000-000000000001",
+    meterNumber: "001",
+    serviceType: "water",
+    serviceName: "Вода",
+    unit: "м³",
+    lastReading: 200,
+    lastReadingDate: "2026-07-31",
+    submitDeadlineDay: 31,
+    submitWindowStart: 25,
+    color: "#0ea5e9",
+    colorLight: "#e0f2fe",
+    icon: "droplet",
+  };
+
+  it("returns 400 when value is below the meter's last known reading (AC-1)", async () => {
+    (getMeterById as any).mockResolvedValue(mockMeter);
+
+    const req = makeRequest("http://localhost:3000/api/readings", {
+      method: "POST",
+      body: {
+        meterId: mockMeter.id,
+        value: 150, // below lastReading (200), fat-finger / OCR misread case
+        date: "2026-08-15",
+      },
+    });
+    const response = await POST(req);
+    const json = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(json.error).toContain("менший за попередній");
+    expect(createReading).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when value equals a regression on the same date", async () => {
+    (getMeterById as any).mockResolvedValue(mockMeter);
+
+    const req = makeRequest("http://localhost:3000/api/readings", {
+      method: "POST",
+      body: {
+        meterId: mockMeter.id,
+        value: 199,
+        date: "2026-07-31", // same date as lastReadingDate
+      },
+    });
+    const response = await POST(req);
+    const json = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(json.error).toContain("менший за попередній");
+  });
+
+  it("accepts a value equal to the last reading (no usage, not a regression)", async () => {
+    (getMeterById as any).mockResolvedValue(mockMeter);
+    (createReading as any).mockResolvedValue({ ...mockReading, value: 200 });
+
+    const req = makeRequest("http://localhost:3000/api/readings", {
+      method: "POST",
+      body: {
+        meterId: mockMeter.id,
+        value: 200,
+        date: "2026-08-15",
+      },
+    });
+    const response = await POST(req);
+
+    expect(response.status).toBe(201);
+  });
+
+  it("accepts a value increasing above the last reading", async () => {
+    (getMeterById as any).mockResolvedValue(mockMeter);
+    (createReading as any).mockResolvedValue({ ...mockReading, value: 250 });
+
+    const req = makeRequest("http://localhost:3000/api/readings", {
+      method: "POST",
+      body: {
+        meterId: mockMeter.id,
+        value: 250,
+        date: "2026-08-15",
+      },
+    });
+    const response = await POST(req);
+
+    expect(response.status).toBe(201);
+    expect(createReading).toHaveBeenCalled();
+  });
+
+  it("accepts a meter rollover when allowRollover is set and the drop is large (AC-3)", async () => {
+    const rolloverMeter: Meter = { ...mockMeter, lastReading: 99950 };
+    (getMeterById as any).mockResolvedValue(rolloverMeter);
+    (createReading as any).mockResolvedValue({ ...mockReading, value: 12 });
+
+    const req = makeRequest("http://localhost:3000/api/readings", {
+      method: "POST",
+      body: {
+        meterId: mockMeter.id,
+        value: 12, // dial wrapped from 99950 -> 00012
+        date: "2026-08-15",
+        allowRollover: true,
+      },
+    });
+    const response = await POST(req);
+
+    expect(response.status).toBe(201);
+    expect(createReading).toHaveBeenCalled();
+  });
+
+  it("rejects a small drop even when allowRollover is set (typo, not a real rollover)", async () => {
+    (getMeterById as any).mockResolvedValue(mockMeter); // lastReading = 200
+
+    const req = makeRequest("http://localhost:3000/api/readings", {
+      method: "POST",
+      body: {
+        meterId: mockMeter.id,
+        value: 150, // only a ~25% drop — not plausible as a dial rollover
+        date: "2026-08-15",
+        allowRollover: true,
+      },
+    });
+    const response = await POST(req);
+    const json = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(json.error).toContain("менший за попередній");
+  });
+
+  it("rejects a large drop without the allowRollover flag", async () => {
+    const rolloverMeter: Meter = { ...mockMeter, lastReading: 99950 };
+    (getMeterById as any).mockResolvedValue(rolloverMeter);
+
+    const req = makeRequest("http://localhost:3000/api/readings", {
+      method: "POST",
+      body: {
+        meterId: mockMeter.id,
+        value: 12,
+        date: "2026-08-15",
+        // allowRollover omitted — must not be silently accepted
+      },
+    });
+    const response = await POST(req);
+    const json = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(json.error).toContain("менший за попередній");
+  });
+
+  it("skips the regression check when the meter has no prior reading yet", async () => {
+    const freshMeter: Meter = { ...mockMeter, lastReading: null, lastReadingDate: null };
+    (getMeterById as any).mockResolvedValue(freshMeter);
+    (createReading as any).mockResolvedValue({ ...mockReading, value: 50 });
+
+    const req = makeRequest("http://localhost:3000/api/readings", {
+      method: "POST",
+      body: {
+        meterId: mockMeter.id,
+        value: 50,
+        date: "2026-08-15",
+      },
+    });
+    const response = await POST(req);
+
+    expect(response.status).toBe(201);
   });
 });

@@ -187,6 +187,20 @@ describe("computeMonthlyUsage", () => {
     // Jul: 12500 - 12350 = 150, cost = 150 * 4.32 = 648
     expect(result[1]).toEqual({ month: "лип.", usage: 150, cost: 648 });
   });
+
+  // Ticket #1, AC-6: a negative delta (e.g. an acknowledged meter rollover
+  // that bypassed the API's regression check) must never produce a negative
+  // usage/cost — it is clamped to 0 instead of showing a nonsense bill.
+  it("clamps a negative delta (rollover/regressive value) to zero usage", () => {
+    const rolloverReadings: Reading[] = [
+      { id: "ro1", meterId: "meter-1", value: 99950, date: "2026-06-30", ocrConfidence: 1, ocrEngine: "manual", submittedToEps: false, submittedAt: null },
+      { id: "ro2", meterId: "meter-1", value: 12, date: "2026-07-31", ocrConfidence: 1, ocrEngine: "manual", submittedToEps: false, submittedAt: null },
+    ];
+    const result = computeMonthlyUsage("meter-1", rolloverReadings, meters, tariffs);
+    expect(result).toHaveLength(1);
+    expect(result[0].usage).toBe(0);
+    expect(result[0].cost).toBe(0);
+  });
 });
 
 // ============================================
@@ -244,6 +258,17 @@ describe("computeBillPredictions", () => {
     expect(predictions[0].predictedUsage).toBe(0);
     expect(predictions[0].predictedAmount).toBe(0);
   });
+
+  // Ticket #1, AC-6: a negative delta must not produce a negative predicted bill.
+  it("clamps a negative delta to zero predicted usage/amount", () => {
+    const rolloverReadings: Reading[] = [
+      { id: "ro1", meterId: "meter-1", value: 99950, date: "2026-06-30", ocrConfidence: 1, ocrEngine: "manual", submittedToEps: false, submittedAt: null },
+      { id: "ro2", meterId: "meter-1", value: 12, date: "2026-07-31", ocrConfidence: 1, ocrEngine: "manual", submittedToEps: false, submittedAt: null },
+    ];
+    const predictions = computeBillPredictions([meters[0]], rolloverReadings, tariffs);
+    expect(predictions[0].predictedUsage).toBe(0);
+    expect(predictions[0].predictedAmount).toBe(0);
+  });
 });
 
 // ============================================
@@ -288,6 +313,20 @@ describe("computeBillChangeFactors", () => {
     const result = computeBillChangeFactors(meters, singleReadings, tariffs, []);
     expect(result.factors).toEqual([]);
     expect(result.currentBill).toBe(0);
+  });
+
+  // Ticket #1, AC-6: a negative delta must not produce a negative currentBill/impact.
+  it("clamps a negative delta to zero usage instead of a negative bill", () => {
+    const rolloverReadings: Reading[] = [
+      { id: "ro1", meterId: "meter-1", value: 170, date: "2026-05-31", ocrConfidence: 1, ocrEngine: "manual", submittedToEps: false, submittedAt: null },
+      { id: "ro2", meterId: "meter-1", value: 99950, date: "2026-06-30", ocrConfidence: 1, ocrEngine: "manual", submittedToEps: false, submittedAt: null },
+      { id: "ro3", meterId: "meter-1", value: 12, date: "2026-07-31", ocrConfidence: 1, ocrEngine: "manual", submittedToEps: false, submittedAt: null },
+    ];
+    const predictions = computeBillPredictions([meters[0]], rolloverReadings, tariffs);
+    const result = computeBillChangeFactors([meters[0]], rolloverReadings, tariffs, predictions);
+
+    // currentBill uses the clamped (zeroed) last-interval usage, never negative
+    expect(result.currentBill).toBeGreaterThanOrEqual(0);
   });
 });
 

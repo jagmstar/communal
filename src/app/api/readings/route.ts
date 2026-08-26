@@ -4,7 +4,7 @@
  */
 
 import { NextRequest } from "next/server";
-import { getReadings, createReading } from "@/lib/db/queries";
+import { getReadings, createReading, getMeterById } from "@/lib/db/queries";
 import {
   apiSuccess,
   apiError,
@@ -13,6 +13,8 @@ import {
   isValidPositiveNumber,
   isValidDateString,
   validateEnum,
+  coerceBoolean,
+  isPlausibleRollover,
   ALLOWED_OCR_ENGINES,
 } from "@/lib/api-utils";
 import type { Reading } from "@/lib/types";
@@ -67,6 +69,30 @@ export async function POST(request: NextRequest) {
     // Validate date format
     if (!isValidDateString(String(body.date))) {
       return apiError(ERRORS.INVALID_DATE, 400);
+    }
+
+    const newValue = Number(body.value);
+    const newDate = String(body.date);
+
+    // Optional explicit override for a meter rollover (dial wrap-around,
+    // e.g. 99999 -> 00012). See ERRORS.READING_BELOW_LAST / isPlausibleRollover.
+    const allowRollover = coerceBoolean(body.allowRollover) === true;
+
+    // Reject a value lower than (or equal-date-but-lower-than) the meter's
+    // last known reading — this is the regression check from ticket #1.
+    // Only compared for same-or-later dates; a backfilled earlier-dated
+    // reading is a different (out-of-scope) case.
+    const meter = await getMeterById(String(body.meterId));
+    if (
+      meter &&
+      meter.lastReading !== null &&
+      (meter.lastReadingDate === null || meter.lastReadingDate <= newDate) &&
+      newValue < meter.lastReading
+    ) {
+      const rolloverPlausible = isPlausibleRollover(newValue, meter.lastReading);
+      if (!allowRollover || !rolloverPlausible) {
+        return apiError(ERRORS.READING_BELOW_LAST, 400);
+      }
     }
 
     // Validate ocrEngine if provided

@@ -23,6 +23,18 @@ type Step = "select" | "photo" | "ocr" | "confirm" | "submitting" | "done";
 
 type OcrStatus = "idle" | "processing" | "success" | "failed" | "unavailable";
 
+/**
+ * Mirrors ROLLOVER_MAX_RATIO / isPlausibleRollover in src/lib/api-utils.ts
+ * (ticket #1, AC-3/AC-4). Kept as a local client-side copy rather than a
+ * shared import because api-utils.ts pulls in `next/server` (NextResponse),
+ * which is not safe to bundle into a "use client" component.
+ */
+const ROLLOVER_MAX_RATIO = 0.5;
+function isPlausibleRollover(newValue: number, lastReading: number): boolean {
+  if (lastReading <= 0) return false;
+  return newValue < lastReading * ROLLOVER_MAX_RATIO;
+}
+
 export default function SubmitPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>("select");
@@ -39,6 +51,7 @@ export default function SubmitPage() {
   const [meters, setMeters] = useState<Meter[]>([]);
   const [loadingMeters, setLoadingMeters] = useState(true);
   const [submitError, setSubmitError] = useState<string>("");
+  const [rolloverAcknowledged, setRolloverAcknowledged] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch meters from API on mount
@@ -59,6 +72,19 @@ export default function SubmitPage() {
 
   const selectedMeter = useMemo(() => meters.find(m => m.id === selectedMeterId), [meters, selectedMeterId]);
 
+  // Ticket #1 (AC-4): the entered value is below the meter's last known
+  // reading — either a typo/OCR misread (block) or a real dial rollover
+  // (allow only once the user explicitly acknowledges it).
+  const parsedValue = ocrValue ? parseFloat(ocrValue) : NaN;
+  const isBelowLastReading =
+    !!selectedMeter?.lastReading &&
+    !isNaN(parsedValue) &&
+    parsedValue < selectedMeter.lastReading;
+  const rolloverPlausible =
+    isBelowLastReading && selectedMeter?.lastReading
+      ? isPlausibleRollover(parsedValue, selectedMeter.lastReading)
+      : false;
+
   const handleMeterSelect = (meterId: string) => {
     setSelectedMeterId(meterId);
     setStep("photo");
@@ -67,6 +93,7 @@ export default function SubmitPage() {
     setPhotoPreview(null);
     setCameraError(false);
     setManualEntry(false);
+    setRolloverAcknowledged(false);
   };
 
   /**
@@ -223,6 +250,20 @@ export default function SubmitPage() {
       return;
     }
 
+    // Ticket #1 (AC-4): client-side guard mirrors the server-side check —
+    // block a below-last-reading value unless it's a plausible rollover
+    // that the user has explicitly acknowledged. This is a UX nicety; the
+    // API's own check (AC-1/AC-3) is the actual enforcement point.
+    if (
+      selectedMeter.lastReading &&
+      readingValue < selectedMeter.lastReading &&
+      !(isPlausibleRollover(readingValue, selectedMeter.lastReading) && rolloverAcknowledged)
+    ) {
+      setSubmitError("Показник менший за попередній. Перевірте значення.");
+      setStep("confirm");
+      return;
+    }
+
     const today = new Date().toISOString().slice(0, 10);
 
     try {
@@ -235,6 +276,7 @@ export default function SubmitPage() {
         ocrConfidence: manualEntry ? 0 : confidence,
         ocrEngine: manualEntry ? "manual" : "tesseract",
         submittedAt: new Date().toISOString(),
+        allowRollover: rolloverAcknowledged,
       });
       setEpsPlaceholder(false);
       setStep("done");
@@ -257,6 +299,7 @@ export default function SubmitPage() {
     setManualEntry(false);
     setEpsPlaceholder(false);
     setSubmitError("");
+    setRolloverAcknowledged(false);
   };
 
   /** Get confidence level label */
@@ -488,7 +531,10 @@ export default function SubmitPage() {
               type="text"
               inputMode="decimal"
               value={ocrValue}
-              onChange={(e) => setOcrValue(e.target.value)}
+              onChange={(e) => {
+                setOcrValue(e.target.value);
+                setRolloverAcknowledged(false); // re-require ack after any edit
+              }}
               placeholder="Наприклад, 12453"
               aria-describedby="reading-value-help"
               className="h-12 w-full rounded-xl border border-border-strong bg-surface px-4 text-lg font-semibold tabular-nums text-foreground placeholder:text-muted-foreground focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-primary-100"
@@ -499,7 +545,9 @@ export default function SubmitPage() {
               </p>
             )}
           </div>
-          {selectedMeter.lastReading && ocrValue && parseFloat(ocrValue) < selectedMeter.lastReading && (
+          {/* Below-last-reading warning (ticket #1, AC-4) — this now actually
+              blocks submission below, it isn't just cosmetic. */}
+          {isBelowLastReading && (
             <div className="flex items-center gap-3 rounded-2xl border border-danger/20 bg-danger-light p-3">
               <AlertCircle className="h-5 w-5 text-danger shrink-0" />
               <p className="text-body text-danger">
@@ -508,10 +556,27 @@ export default function SubmitPage() {
             </div>
           )}
 
+          {/* Rollover acknowledgment (ticket #1, AC-3/AC-4) — only offered
+              when the drop is large enough to plausibly be a real dial
+              wrap-around, not a typo/OCR misread. */}
+          {isBelowLastReading && rolloverPlausible && (
+            <label className="flex items-start gap-3 rounded-2xl border border-warning/20 bg-warning-light p-3">
+              <input
+                type="checkbox"
+                checked={rolloverAcknowledged}
+                onChange={(e) => setRolloverAcknowledged(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0"
+              />
+              <span className="text-body text-warning">
+                Це перехід лічильника через нуль (роловер), а не помилка. Підтверджую значення.
+              </span>
+            </label>
+          )}
+
           {/* Submit button */}
           <button
             onClick={handleConfirm}
-            disabled={!ocrValue}
+            disabled={!ocrValue || (isBelowLastReading && !(rolloverPlausible && rolloverAcknowledged))}
             className="card-hover flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 font-semibold text-white shadow-lg shadow-primary-500/20 transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Upload className="h-5 w-5" />

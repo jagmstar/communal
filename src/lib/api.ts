@@ -81,9 +81,13 @@ export async function putSettings(partial: Partial<Settings>): Promise<Settings>
   return (json.data ?? json) as Settings;
 }
 
-/** POST /api/readings — create a new reading */
+/**
+ * POST /api/readings — create a new reading.
+ * `allowRollover` (ticket #1, AC-3/AC-4) is an optional explicit override for
+ * a real meter dial rollover; omit/false for ordinary submissions.
+ */
 export async function postReading(
-  reading: Omit<Reading, "id">
+  reading: Omit<Reading, "id"> & { allowRollover?: boolean }
 ): Promise<Reading> {
   const res = await fetch(`${API_BASE}/api/readings`, {
     method: "POST",

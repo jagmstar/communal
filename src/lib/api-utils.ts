@@ -144,6 +144,37 @@ export function validateEnum<T extends string>(
 }
 
 // ============================================
+// Reading-progression validation (ticket #1)
+// ============================================
+
+/**
+ * A meter rollover is only accepted as legitimate when the new value drops to
+ * LESS than this fraction of the last known reading. A mechanical dial rollover
+ * (e.g. 99999 -> 00012) produces a drop close to 100%. A fat-fingered digit or a
+ * misread OCR digit (e.g. 12453 -> 1453) typically produces a much smaller relative
+ * drop. Requiring a large drop before honoring the `allowRollover` override prevents
+ * the override from being used to paper over ordinary typos.
+ *
+ * This threshold is a Dev decision (see ticket #1 AC-3) — there is no per-meter
+ * "dial capacity" stored in the schema, so an exact rollover-math check (e.g.
+ * `lastReading + (ROLLOVER_CAPACITY - lastReading) + newValue`) is out of scope.
+ */
+export const ROLLOVER_MAX_RATIO = 0.5;
+
+/**
+ * Determine whether a new reading value below the meter's last known reading
+ * looks like a plausible meter rollover (dial wrap-around) rather than an
+ * ordinary typo/OCR misread.
+ * @param newValue - The newly submitted reading value
+ * @param lastReading - The meter's current last known reading
+ * @returns true if the drop is large enough to plausibly be a rollover
+ */
+export function isPlausibleRollover(newValue: number, lastReading: number): boolean {
+  if (lastReading <= 0) return false;
+  return newValue < lastReading * ROLLOVER_MAX_RATIO;
+}
+
+// ============================================
 // Error message constants (Ukrainian)
 // ============================================
 
@@ -156,6 +187,8 @@ export const ERRORS = {
   INVALID_DATE: "Невірний формат дати. Очікується YYYY-MM-DD.",
   INVALID_OCR_ENGINE: "Невірний тип OCR-движка.",
   INVALID_NOTIFICATION_VALUE: "Значення сповіщень має бути булевим типом.",
+  READING_BELOW_LAST:
+    "Показник менший за попередній. Перевірте значення. Якщо це перекручення лічильника (перехід через нуль), позначте це явно.",
   METER_NOT_FOUND: "Лічильник не знайдено.",
   FETCH_METERS_FAILED: "Не вдалося отримати список лічильників.",
   FETCH_READINGS_FAILED: "Не вдалося отримати показники.",

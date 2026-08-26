@@ -138,6 +138,17 @@ export async function getMeters(): Promise<Meter[]> {
 }
 
 /**
+ * Get a single meter by ID.
+ * @param meterId - The meter UUID
+ * @returns The Meter object, or null if not found
+ */
+export async function getMeterById(meterId: string): Promise<Meter | null> {
+  const sql = getSql();
+  const rows = (await sql`SELECT * FROM meters WHERE id = ${meterId}`) as MeterRow[];
+  return rows.length > 0 ? mapMeter(rows[0]) : null;
+}
+
+/**
  * Get readings, optionally filtered by meter ID.
  * @param meterId - Optional meter UUID to filter by
  * @returns Array of Reading objects sorted by date ascending

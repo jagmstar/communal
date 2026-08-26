@@ -11,6 +11,31 @@
 import type { Meter, Reading, Tariff, Reminder, BillPrediction, ServiceType } from "./types";
 
 /**
+ * Guard against a negative usage delta between two consecutive readings
+ * (ticket #1, AC-6).
+ *
+ * `POST /api/readings` (see src/app/api/readings/route.ts) rejects an
+ * ordinary regressive reading server-side as of ticket #1, so under normal
+ * operation `curr.value >= prev.value` here. The one case that can still
+ * legitimately produce `curr.value < prev.value` is an acknowledged meter
+ * rollover (dial wrap-around, submitted with `allowRollover: true`) — the
+ * API intentionally lets that through because a schema without a per-meter
+ * "dial capacity" field cannot compute the true wrapped usage
+ * (`(capacity - prev.value) + curr.value`).
+ *
+ * Rather than surface a negative — and therefore meaningless — usage/cost
+ * to the person (the exact symptom ticket #1 reports), this clamps the
+ * delta to 0. This is a deliberate, documented simplification: it under-
+ * counts usage for the rollover month instead of showing nonsense. A
+ * follow-up ticket to store dial capacity and compute true rollover usage
+ * is out of scope here (see ticket #1 "Out of scope").
+ */
+function nonNegativeDelta(currValue: number, prevValue: number): number {
+  const diff = currValue - prevValue;
+  return diff < 0 ? 0 : diff;
+}
+
+/**
  * Ukrainian pluralization helper.
  * Returns the correct form of a word based on the count.
  * Ukrainian has three plural forms: one, few (2-4), many (5+).
@@ -48,7 +73,8 @@ export function computeMonthlyUsage(
   for (let i = 1; i < meterReadings.length; i++) {
     const prev = meterReadings[i - 1];
     const curr = meterReadings[i];
-    const diff = curr.value - prev.value;
+    // Non-decreasing assumption guard — see nonNegativeDelta() (ticket #1, AC-6).
+    const diff = nonNegativeDelta(curr.value, prev.value);
     const monthName = new Date(curr.date).toLocaleDateString("uk-UA", { month: "short" });
     const meter = meters.find((m) => m.id === meterId);
     const tariff = tariffs.find((t) => t.serviceType === meter?.serviceType);
@@ -96,10 +122,11 @@ export function computeBillChangeFactors(
     const last = meterReadings[meterReadings.length - 1];
     const prev = meterReadings[meterReadings.length - 2];
 
-    const lastUsage = last.value - prev.value;
+    // Non-decreasing assumption guard — see nonNegativeDelta() (ticket #1, AC-6).
+    const lastUsage = nonNegativeDelta(last.value, prev.value);
     const prevUsage =
       meterReadings.length >= 3
-        ? prev.value - meterReadings[meterReadings.length - 3].value
+        ? nonNegativeDelta(prev.value, meterReadings[meterReadings.length - 3].value)
         : prev.value;
 
     const serviceTariffs = tariffs.filter((t) => t.serviceType === meter.serviceType);
@@ -301,7 +328,8 @@ export function computeBillPredictions(
     if (meterReadings.length >= 2) {
       const last = meterReadings[meterReadings.length - 1];
       const prev = meterReadings[meterReadings.length - 2];
-      const lastUsage = last.value - prev.value;
+      // Non-decreasing assumption guard — see nonNegativeDelta() (ticket #1, AC-6).
+      const lastUsage = nonNegativeDelta(last.value, prev.value);
       predictedUsage = Math.round(lastUsage * 100) / 100;
     }
 
