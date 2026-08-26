@@ -1,0 +1,32 @@
+# CI gate — added per incident-2026-08-26-prod-down.md Prevention item 1:
+# "No DEPLOY gate exists in this repo's documented pipeline ... no CI
+# (.github/workflows/ does not exist), and no branch protection".
+# This workflow provides the required status checks that branch protection
+# can then enforce. It does NOT deploy anything.
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Install dependencies (locked)
+        run: npm ci
+      - name: Type-check
+        run: npx tsc --noEmit
+      - name: Unit tests (product suite)
+        # qa/ contains adversarial kill-tests that intentionally document
+        # known-failing parent-branch behavior — they are not a merge gate.
+        run: npx vitest run src
+      - name: Dependency vulnerability audit (production deps)
+        run: npm audit --omit=dev --audit-level=high
