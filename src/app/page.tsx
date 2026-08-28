@@ -57,6 +57,10 @@ export default function HomePage() {
     return () => { cancelled = true; };
   }, []);
 
+  const totalBill = useMemo(() => computeTotalPredictedBill(billPredictions), [billPredictions]);
+  const urgentCount = useMemo(() => reminders.filter((r) => r.urgent).length, [reminders]);
+  const currentMonth = useMemo(() => new Date().toLocaleDateString("uk-UA", { month: "long" }), []);
+
   if (loading) {
     return <LoadingState message="Завантажую дані..." />;
   }
@@ -70,10 +74,6 @@ export default function HomePage() {
       />
     );
   }
-
-  const totalBill = useMemo(() => computeTotalPredictedBill(billPredictions), [billPredictions]);
-  const urgentCount = useMemo(() => reminders.filter((r) => r.urgent).length, [reminders]);
-  const currentMonth = useMemo(() => new Date().toLocaleDateString("uk-UA", { month: "long" }), []);
 
   return (
     <div className="px-4 pt-6 pb-4 space-y-6">
