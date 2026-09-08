@@ -15,6 +15,13 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <!-- Bug fix (2026-09-08): this theme did not inherit from AppTheme, so
+             statusBarColor/navigationBarColor were lost the moment the splash
+             screen handed off to this post-splash theme, and the status bar
+             reverted to the OS default instead of the "Тепло домівки" teal. -->
+        <item name="android:statusBarColor">@color/colorStatusBar</item>
+        <item name="android:navigationBarColor">@color/colorNavigationBar</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 
 

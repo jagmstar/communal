@@ -45,6 +45,28 @@
     <!-- Required for OCR photo capture (US-2) -->
     <uses-permission android:name="android.permission.CAMERA" />
 
+    <!-- Bug fix (2026-09-08): @capacitor/camera's CameraPlugin.requestPermissions() takes the
+         "isPermissionDeclared(CAMERA) == true" branch (since CAMERA is required above) and
+         calls super.requestPermissions() unconditionally requesting ALL its permission
+         aliases (camera + saveGallery), regardless of Android version — it only skips the
+         legacy storage perms when CAMERA is NOT declared, which is backwards from what you'd
+         expect. Confirmed via logcat during emulator QA (API 34): every single
+         Camera.requestPermissions() call failed with "Missing the following permissions in
+         AndroidManifest.xml: android.permission.READ_EXTERNAL_STORAGE", silently breaking the
+         entire "Фото → OCR → EPS" submit flow — the app's core advertised value prop.
+         Root cause: android:maxSdkVersion-scoped permissions are stripped from
+         PackageInfo.requestedPermissions on devices above that SDK, so Capacitor's
+         isPermissionDeclared() check sees the permission as "undeclared" even though it's
+         in the manifest. Fix (matches the community workaround in
+         ionic-team/capacitor-plugins#1666): declare READ_EXTERNAL_STORAGE UNSCOPED so it is
+         always present in the requested-permissions list and the declared-check passes; it
+         is a no-op on Android 13+ (Scoped Storage / Photo Picker supersede it) so this does
+         not grant the app any broader access than before. WRITE_EXTERNAL_STORAGE stays
+         scoped to <=29 since it is still enforced/dangerous on 30-32 and unnecessary here
+         (app never calls saveToGallery). -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
+
     <!-- Required for bill reminder notifications (US-9) on Android 13+ -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 

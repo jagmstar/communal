@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#FFFFFF</color>
+    <!-- Adaptive icon (API 26+) background layer. Was #FFFFFF (unbranded Capacitor
+         default); switched to the "Тепло домівки" primary teal so the launcher icon
+         reads as Communal, not a generic placeholder. -->
+    <color name="ic_launcher_background">#0f766e</color>
 </resources>
