@@ -27,6 +27,14 @@
   --water: #0ea5e9;
   --water-light: #e0f2fe;
   --water-dark: #075985;
+  /* Water hot/cold differentiation (design spec §1.1) — previously both read
+     as an identical "blue droplet" with no way to tell hot from cold apart
+     (audit #2). Hot keeps the warm-tinted sky blue with a flame-orange ring
+     accent applied at the component level; cold uses a distinct cooler blue. */
+  --water-hot: #0ea5e9;
+  --water-hot-light: #e0f2fe;
+  --water-cold: #38bdf8;
+  --water-cold-light: #e0f2fe;
   --electricity: #f59e0b;
   --electricity-light: #fef3c7;
   --electricity-dark: #92400e;
@@ -118,6 +126,10 @@
   --color-water: var(--water);
   --color-water-light: var(--water-light);
   --color-water-dark: var(--water-dark);
+  --color-water-hot: var(--water-hot);
+  --color-water-hot-light: var(--water-hot-light);
+  --color-water-cold: var(--water-cold);
+  --color-water-cold-light: var(--water-cold-light);
   --color-electricity: var(--electricity);
   --color-electricity-light: var(--electricity-light);
   --color-electricity-dark: var(--electricity-dark);
@@ -280,8 +292,12 @@ html {
 .pt-safe {
   padding-top: env(safe-area-inset-top, 0px);
 }
+/* Design spec §1.4 (P0 bug fix): every scrollable page must reserve at
+   least 96px below its content so the last list item is never covered by
+   the fixed bottom nav (64px) + floating FAB. Previously 80px, which let
+   the FAB overlap the last row on /history (audit #1). */
 .page-container {
-  padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
 }
 
 /* Reduced motion */
