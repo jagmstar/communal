@@ -14,11 +14,19 @@ const iconMap: Record<string, React.ComponentType<{ className?: string; strokeWi
   zap: Zap,
 };
 
-type Severity = "info" | "warning" | "critical";
+type Severity = "info" | "warning" | "critical" | "success";
 
-/** Map insight type to severity for color coding */
+/**
+ * Map insight type to a tone per design spec §2.1: streak/praise cards read
+ * as positive (success tint), savings tips as actionable (warning/amber
+ * tint), CO2/neutral info as primary tint — previously every card used the
+ * same flat border regardless of tone, so a streak and an anomaly looked
+ * identical.
+ */
 function getSeverity(type: string): Severity {
   if (type === "anomaly") return "warning";
+  if (type === "streak") return "success";
+  if (type === "saving") return "warning";
   return "info";
 }
 
@@ -29,6 +37,8 @@ function getSeverityBorder(severity: Severity): string {
       return "border-l-warning";
     case "critical":
       return "border-l-danger";
+    case "success":
+      return "border-l-success";
     default:
       return "border-l-primary-300";
   }

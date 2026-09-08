@@ -68,6 +68,21 @@ export default function SubmitPage() {
 
   const selectedMeter = useMemo(() => meters.find(m => m.id === selectedMeterId), [meters, selectedMeterId]);
 
+  // Design spec §2.2: the primary camera CTA on the select screen should
+  // default to the meter with the nearest upcoming submit deadline, so it's
+  // a genuinely useful one-tap action rather than an ambiguous "photograph
+  // something" button.
+  const nextDueMeter = useMemo(() => {
+    if (meters.length === 0) return null;
+    const now = new Date();
+    const day = now.getDate();
+    return [...meters].sort((a, b) => {
+      const da = (a.submitDeadlineDay - day + 31) % 31;
+      const db = (b.submitDeadlineDay - day + 31) % 31;
+      return da - db;
+    })[0];
+  }, [meters]);
+
   // Ticket #1 (AC-4): the entered value is below the meter's last known
   // reading — either a typo/OCR misread (block) or a real dial rollover
   // (allow only once the user explicitly acknowledges it).
@@ -338,29 +353,74 @@ export default function SubmitPage() {
         </button>
       )}
 
-      {/* Step: Select meter */}
+      {/* Step: Select meter — camera entry point is now the primary,
+          above-the-fold affordance (design spec §2.2 / audit #5). This was
+          the app's core, most visible bug: the dashboard's own copy
+          promises "Фото → OCR → EPS одним тапом" but this screen used to
+          be a bare list with no camera button anywhere on it.
+          `nextDueMeter` picks the meter with the closest submit deadline so
+          "Сфотографувати показник" is a genuinely useful one-tap default,
+          not a dead click. Full non-compact MeterCard is used below (not
+          `compact`) so last reading + due date + chevron are all visible,
+          per spec. */}
       {step === "select" && (
-        <div className="space-y-4 animate-fade-in">
-          <h1 className="text-2xl font-bold tracking-tight">Передати показники</h1>
-          <p className="text-body text-muted-foreground">
-            Оберіть лічильник для передачі показників
-          </p>
+        <div className="space-y-5 animate-fade-in">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Передати показники</h1>
+            <p className="text-body text-muted-foreground mt-1">
+              Сфотографуйте лічильник — цифри розпізнаються автоматично
+            </p>
+          </div>
+
+          {nextDueMeter && (
+            <button
+              onClick={() => handleMeterSelect(nextDueMeter.id)}
+              className="card-hover flex w-full items-center gap-3 rounded-2xl bg-gradient-to-br from-secondary-500 to-secondary-600 p-4 text-left text-white shadow-lg shadow-secondary-500/30 transition-transform active:scale-95"
+            >
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/20">
+                <Camera className="h-6 w-6" strokeWidth={2.5} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold">Сфотографувати показник</p>
+                <p className="text-xs text-white/90 mt-0.5">
+                  {nextDueMeter.serviceName} • Фото → OCR → EPS одним тапом
+                </p>
+              </div>
+            </button>
+          )}
+
           <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground px-1">
+              Або оберіть лічильник вручну
+            </p>
             {meters.map((meter) => (
               <MeterCard
                 key={meter.id}
                 meter={meter}
-                compact
                 onClick={() => handleMeterSelect(meter.id)}
               />
             ))}
           </div>
+
+          {meters.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-border bg-muted/30 p-8 text-center">
+              <p className="text-body text-muted-foreground">
+                Спершу додайте лічильник у Налаштуваннях
+              </p>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Step: Photo capture */}
+      {/* Step: Photo capture. Preview aspect ratio tightened from 3:4 to
+          4:3 and spacing condensed (design spec §6 acceptance checklist:
+          "one-thumb reachability... every screen" / "no page requires
+          scrolling to find the primary action") — the 3:4 preview pushed
+          the shutter button partially under the fixed bottom nav on a
+          390x844 viewport, the single worst possible bug for a screen
+          whose whole point is being fast and thumb-reachable. */}
       {step === "photo" && selectedMeter && (
-        <div className="space-y-6 animate-fade-in">
+        <div className="space-y-4 animate-fade-in">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Фото лічильника</h1>
             <p className="text-body text-muted-foreground">
@@ -369,7 +429,7 @@ export default function SubmitPage() {
           </div>
 
           {/* Camera preview / placeholder */}
-          <div className="relative aspect-[3/4] w-full overflow-hidden rounded-3xl border-2 border-dashed border-border bg-muted/50">
+          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-3xl border-2 border-dashed border-border bg-muted/50">
             {photoPreview ? (
               <img
                 src={photoPreview}
@@ -378,18 +438,17 @@ export default function SubmitPage() {
                 className="absolute inset-0 h-full w-full object-cover"
               />
             ) : (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
-                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-primary-500 to-primary-600 shadow-lg shadow-primary-500/20">
-                  <Camera className="h-8 w-8 text-white" strokeWidth={2} />
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-primary-500 to-primary-600 shadow-lg shadow-primary-500/20">
+                  <Camera className="h-7 w-7 text-white" strokeWidth={2} />
                 </div>
                 <p className="text-body text-muted-foreground text-center px-8">
-                  Наведіть камеру на дисплей лічильника.<br />
-                  Цифри мають бути чітко видимими.
+                  Наведіть камеру на дисплей лічильника.
                 </p>
               </div>
             )}
             {/* Scanning frame overlay */}
-            <div className="absolute inset-x-8 top-1/4 bottom-1/4 overflow-hidden rounded-2xl">
+            <div className="absolute inset-x-8 top-1/5 bottom-1/5 overflow-hidden rounded-2xl">
               <div className="absolute inset-0 border-2 border-primary-300 rounded-2xl" />
               {!photoPreview && (
                 <div className="absolute inset-x-0 top-0 h-0.5 bg-primary-400 animate-scan" />
@@ -400,7 +459,7 @@ export default function SubmitPage() {
           {/* Tips */}
           <div className="rounded-2xl border border-border bg-muted/30 p-3">
             <p className="text-xs text-muted-foreground">
-              💡 <span className="font-medium">Порада:</span> Фотографуйте за прямого світла. Уникайте відблисків на дисплеї.
+              💡 <span className="font-medium">Порада:</span> Фотографуйте за прямого світла, уникайте відблисків.
             </p>
           </div>
 
@@ -616,11 +675,13 @@ export default function SubmitPage() {
             </p>
           </div>
 
-          {/* EPS placeholder notice */}
+          {/* EPS placeholder notice — Ukrainian throughout (design spec §4,
+              audit: an English string was leaking into an otherwise fully
+              localized flow). */}
           {epsPlaceholder && (
             <div className="rounded-2xl border border-warning/20 bg-warning-light p-3 text-center">
               <p className="text-xs text-warning">
-                EPS integration coming soon — показник збережено локально.
+                Інтеграція з EPS у розробці — показник збережено локально.
               </p>
             </div>
           )}

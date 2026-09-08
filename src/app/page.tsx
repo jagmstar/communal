@@ -2,7 +2,10 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { Sparkles, TrendingUp, AlertTriangle, ArrowRight, Camera } from "lucide-react";
+import {
+  Sparkles, TrendingUp, AlertTriangle,
+  Droplet, Zap, Flame, Building, Receipt, Thermometer,
+} from "lucide-react";
 import { fetchMeters, fetchReadings, fetchTariffs } from "@/lib/api";
 import {
   computeTotalPredictedBill,
@@ -17,6 +20,15 @@ import { BillExplanation } from "@/components/BillExplanation";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
 import type { Meter, Reading, Tariff, Reminder, BillPrediction } from "@/lib/types";
+
+const iconMap: Record<string, React.ComponentType<{ className?: string; strokeWidth?: number }>> = {
+  droplet: Droplet,
+  zap: Zap,
+  flame: Flame,
+  building: Building,
+  receipt: Receipt,
+  thermometer: Thermometer,
+};
 
 export default function HomePage() {
   const [meters, setMeters] = useState<Meter[]>([]);
@@ -126,23 +138,6 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* Quick Action */}
-      <Link
-        href="/submit"
-        className="card-hover flex items-center justify-between rounded-2xl border border-primary-200 bg-primary-50 p-4"
-      >
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 shadow-md">
-            <Camera className="h-5 w-5 text-white" strokeWidth={2.5} />
-          </div>
-          <div>
-            <p className="font-semibold text-foreground">Передати показники</p>
-            <p className="text-xs text-muted-foreground">Фото → OCR → EPS одним тапом</p>
-          </div>
-        </div>
-        <ArrowRight className="h-5 w-5 text-primary-600" />
-      </Link>
-
       {/* Smart Insights */}
       <SmartInsights meters={meters} readings={readings} />
 
@@ -162,32 +157,37 @@ export default function HomePage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Деталі рахунку</h2>
         <div className="rounded-2xl border border-border bg-surface overflow-hidden">
-          {billPredictions.map((pred, idx) => (
-            <div
-              key={pred.meterId}
-              className={`flex items-center justify-between p-3 ${
-                idx < billPredictions.length - 1 ? "border-b border-border" : ""
-              }`}
-            >
-              <div className="flex items-center gap-2">
+          {billPredictions.map((pred, idx) => {
+            const meter = meters.find((m) => m.id === pred.meterId);
+            const Icon = iconMap[meter?.icon || "receipt"] || Receipt;
+            return (
+              <div
+                key={pred.meterId}
+                className={`flex items-center gap-3 p-3 ${
+                  idx < billPredictions.length - 1 ? "border-b border-border" : ""
+                }`}
+              >
+                {/* 40x40 icon container — replaces the old 8px color dot
+                    (audit #7) so the breakdown matches the meter-card
+                    icon language and is scannable at a glance. */}
                 <div
-                  className="h-2 w-2 rounded-full"
-                  style={{
-                    backgroundColor: meters.find((m) => m.id === pred.meterId)?.color,
-                  }}
-                />
-                <span className="text-body text-foreground">{pred.serviceName}</span>
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+                  style={{ backgroundColor: meter?.colorLight, color: meter?.color }}
+                >
+                  <Icon className="h-5 w-5" strokeWidth={2} />
+                </div>
+                <span className="flex-1 text-body text-foreground">{pred.serviceName}</span>
+                <div className="text-right">
+                  <p className="text-body font-semibold tabular-nums">
+                    {pred.predictedAmount.toLocaleString("uk-UA", { minimumFractionDigits: 2 })} ₴
+                  </p>
+                  <p className="text-xs text-muted-foreground tabular-nums">
+                    {pred.predictedUsage} {meter?.unit}
+                  </p>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="text-body font-semibold tabular-nums">
-                  {pred.predictedAmount.toLocaleString("uk-UA", { minimumFractionDigits: 2 })} ₴
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {pred.predictedUsage} {meters.find((m) => m.id === pred.meterId)?.unit}
-                </p>
-              </div>
-            </div>
-          ))}
+            );
+          })}
           <div className="flex items-center justify-between border-t-2 border-border-strong bg-muted/30 p-3">
             <span className="font-semibold">Разом</span>
             <span className="font-bold text-lg tabular-nums">
