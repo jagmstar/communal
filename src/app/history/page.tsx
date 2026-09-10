@@ -9,6 +9,7 @@ import {
 import { fetchMeters, fetchReadings, fetchTariffs } from "@/lib/api";
 import { computeMonthlyUsage, getAvailableYears } from "@/lib/calculations";
 import { UsageChart } from "@/components/UsageChart";
+import { ChartErrorBoundary } from "@/components/ChartErrorBoundary";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
 import type { Meter, Reading, Tariff } from "@/lib/types";
@@ -291,8 +292,14 @@ export default function HistoryPage() {
             </div>
 
             {/* Chart — single labeled axis, one scale, gridlines (design
-                spec §2.3 / audit #3; see UsageChart.tsx) */}
-            <UsageChart data={usageData} color={tint?.color || selectedMeter.color} unit={selectedMeter.unit} />
+                spec §2.3 / audit #3; see UsageChart.tsx). Wrapped in its own
+                error boundary (2026-09-10 QA fix, qa/2026-09-10/) so a
+                recharts/ResizeObserver render failure during a live window
+                resize can't take down the whole page — see
+                ChartErrorBoundary.tsx for the full root-cause writeup. */}
+            <ChartErrorBoundary>
+              <UsageChart data={usageData} color={tint?.color || selectedMeter.color} unit={selectedMeter.unit} />
+            </ChartErrorBoundary>
 
             {/* Summary row (AC-6.1) */}
             <div className="mt-4 flex items-center justify-between border-t border-border pt-3">

@@ -21,9 +21,17 @@ interface UsageChartProps {
  */
 export function UsageChart({ data, color = "#14b8a6", showCost = false, unit = "" }: UsageChartProps) {
   const dataKey = showCost ? "cost" : "usage";
-  const maxValue = Math.max(1, ...data.map((d) => d[dataKey]));
+  // Guard against non-finite/degenerate values (e.g. NaN sneaking in from an
+  // upstream calculation, or a transient measurement during a live resize —
+  // see ChartErrorBoundary.tsx for the 2026-09-10 investigation). Without
+  // this, Math.max(...) over an array containing NaN returns NaN, which
+  // propagates into `niceMax` (still NaN) and then into recharts'
+  // `domain={[0, NaN]}`, a malformed prop that recharts is not guaranteed to
+  // handle gracefully mid-render.
+  const safeValues = data.map((d) => d[dataKey]).filter((v) => Number.isFinite(v));
+  const maxValue = Math.max(1, ...safeValues);
   // Round the axis max up to a "nice" number so ticks land on clean values.
-  const niceMax = Math.ceil(maxValue * 1.15 * 100) / 100;
+  const niceMax = Number.isFinite(maxValue) ? Math.ceil(maxValue * 1.15 * 100) / 100 : 1;
 
   return (
     <div className="h-[180px] w-full" role="img" aria-label={`Графік витрати за ${data.length} місяців, у ${unit || (showCost ? "₴" : "")}`}>
