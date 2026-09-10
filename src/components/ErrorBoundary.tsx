@@ -1,6 +1,6 @@
 "use client";
 
-import { Component, type ReactNode } from "react";
+import { Component, type ErrorInfo, type ReactNode } from "react";
 import { AlertCircle, RotateCcw } from "lucide-react";
 
 interface ErrorBoundaryProps {
@@ -23,6 +23,20 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   static getDerivedStateFromError(): ErrorBoundaryState {
     return { hasError: true };
+  }
+
+  /**
+   * 2026-09-10 QA fix: this boundary previously discarded the actual error —
+   * getDerivedStateFromError only flipped a boolean, with nothing logging
+   * *what* was thrown or where. That meant every prior production crash
+   * (e.g. the 08-08/08-26 ErrorBoundary sightings) left zero diagnostic
+   * trail beyond "Roman saw the fallback screen". Logging here doesn't fix
+   * the underlying bug class by itself, but it's the difference between
+   * being able to triage the next occurrence in minutes vs. reproducing
+   * blind for hours.
+   */
+  componentDidCatch(error: Error, info: ErrorInfo): void {
+    console.error("ErrorBoundary caught a render error:", error, info.componentStack);
   }
 
   handleReload = () => {
