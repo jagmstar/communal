@@ -1,18 +1,29 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, beforeAll, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { proxy, config } from "../proxy";
 
-// Helper: build a NextRequest for a given /api/* path, method, and optional
-// forwarded-for IP (defaults to a unique-per-call IP so tests don't bleed
-// into each other's rate-limit buckets unless explicitly shared).
-function makeApiRequest(
+// The proxy auth gate reads COMMUNAL_SESSION_SECRET at request time (inside
+// lib/session.ts's sign()/getSecret()), so it's safe to set this before
+// importing — no module-level caching to worry about.
+process.env.COMMUNAL_SESSION_SECRET = "test-secret-for-proxy-spec-only";
+
+import { proxy, config } from "../proxy";
+import { COOKIE_NAME, makeSessionCookieValue } from "../lib/session";
+
+// Helper: build a NextRequest for a given path/method, optionally with a
+// valid session cookie and/or a forwarded-for IP (unique per call so tests
+// don't bleed into each other's rate-limit buckets unless explicitly shared).
+function makeRequest(
   method: string,
-  options: { ip?: string; path?: string } = {}
+  options: { ip?: string; path?: string; authed?: boolean; cookie?: string } = {}
 ) {
   const path = options.path ?? "/api/readings";
   const headers: Record<string, string> = {};
   if (options.ip) {
     headers["x-forwarded-for"] = options.ip;
+  }
+  const cookieValue = options.cookie ?? (options.authed ? makeSessionCookieValue() : undefined);
+  if (cookieValue) {
+    headers["cookie"] = `${COOKIE_NAME}=${cookieValue}`;
   }
   return new NextRequest(new URL(`http://localhost:3000${path}`), {
     method,
@@ -20,26 +31,79 @@ function makeApiRequest(
   });
 }
 
+function makeApiRequest(
+  method: string,
+  options: { ip?: string; path?: string; authed?: boolean } = {}
+) {
+  // Pre-auth-gate tests always ran as authenticated household traffic in
+  // intent (rate limiting / CORS preflight behavior) — default to a valid
+  // session unless a test explicitly wants to exercise the 401 path.
+  return makeRequest(method, { authed: true, ...options });
+}
+
 describe("proxy config", () => {
-  it("matches /api/:path* only", () => {
-    expect(config.matcher).toBe("/api/:path*");
+  it("matches all paths except static assets (auth gate now covers pages too)", () => {
+    expect(Array.isArray(config.matcher)).toBe(true);
+    expect(config.matcher[0]).toContain("_next/static");
   });
 });
 
-describe("proxy — non-API routes", () => {
-  it("passes through non-/api paths without modification", () => {
-    const req = new NextRequest(new URL("http://localhost:3000/dashboard"), {
-      method: "OPTIONS",
+describe("proxy — auth gate (ticket queue-20260917-0455-senior-fullstack-dev)", () => {
+  it("redirects an unauthenticated page request to /login, preserving the path", () => {
+    const req = makeRequest("GET", { path: "/settings" });
+    const res = proxy(req);
+    expect(res.status).toBe(307); // NextResponse.redirect default
+    const location = res.headers.get("location");
+    expect(location).toContain("/login");
+    expect(location).toContain("next=%2Fsettings");
+  });
+
+  it("allows an authenticated page request through", () => {
+    const req = makeRequest("GET", { path: "/settings", authed: true });
+    const res = proxy(req);
+    expect(res.status).toBe(200); // NextResponse.next() passthrough
+  });
+
+  it("rejects an unauthenticated /api/* request with 401", () => {
+    const req = makeRequest("GET", { path: "/api/settings" });
+    const res = proxy(req);
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects a forged session cookie with 401 (HMAC must actually verify)", async () => {
+    const req = makeRequest("GET", {
+      path: "/api/settings",
+      cookie: "9999999999.deadbeef",
     });
     const res = proxy(req);
-    // NextResponse.next() has no special status override (200 passthrough marker)
+    expect(res.status).toBe(401);
+  });
+
+  it("allows an authenticated /api/* request through", () => {
+    const req = makeRequest("GET", { path: "/api/settings", authed: true });
+    const res = proxy(req);
+    expect(res.status).toBe(200);
+  });
+
+  it.each(["/login", "/api/login", "/api/health"])(
+    "leaves public path %s reachable with no session",
+    (path) => {
+      const req = makeRequest("GET", { path });
+      const res = proxy(req);
+      expect(res.status).toBe(200);
+    }
+  );
+
+  it("does not gate static assets", () => {
+    const req = makeRequest("GET", { path: "/manifest.json" });
+    const res = proxy(req);
     expect(res.status).toBe(200);
   });
 });
 
 describe("proxy — CORS preflight", () => {
-  it("returns 204 with CORS headers for OPTIONS on /api/*", () => {
-    const req = makeApiRequest("OPTIONS", { ip: "10.0.0.1" });
+  it("returns 204 with CORS headers for OPTIONS on /api/* (no session needed for preflight)", () => {
+    const req = makeRequest("OPTIONS", { path: "/api/meters" });
     const res = proxy(req);
 
     expect(res.status).toBe(204);
@@ -54,25 +118,22 @@ describe("proxy — CORS preflight", () => {
   });
 
   it("applies CORS preflight to any /api/* subpath", () => {
-    const req = makeApiRequest("OPTIONS", {
-      ip: "10.0.0.2",
-      path: "/api/meters",
-    });
+    const req = makeRequest("OPTIONS", { path: "/api/readings" });
     const res = proxy(req);
     expect(res.status).toBe(204);
     expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
   });
 });
 
-describe("proxy — GET passthrough", () => {
-  it("does not rate-limit or block GET requests", () => {
+describe("proxy — GET passthrough (authenticated)", () => {
+  it("does not rate-limit or block authenticated GET requests", () => {
     const req = makeApiRequest("GET", { ip: "10.0.0.3" });
     const res = proxy(req);
     expect(res.status).toBe(200);
   });
 });
 
-describe("proxy — rate limiting", () => {
+describe("proxy — rate limiting (authenticated writes)", () => {
   it("allows the first 30 POST/PUT requests per minute per IP", () => {
     const ip = "10.1.1.1";
     for (let i = 0; i < 30; i++) {
@@ -123,7 +184,10 @@ describe("proxy — rate limiting", () => {
       new URL("http://localhost:3000/api/readings"),
       {
         method: "POST",
-        headers: { "x-real-ip": "10.2.2.2" },
+        headers: {
+          "x-real-ip": "10.2.2.2",
+          cookie: `${COOKIE_NAME}=${makeSessionCookieValue()}`,
+        },
       }
     );
     const res = proxy(req);

@@ -14,6 +14,14 @@ const tabs = [
 export function BottomNav() {
   const pathname = usePathname();
 
+  // /login is a full-screen auth gate (ticket queue-20260917-0455-senior-fullstack-dev,
+  // step 1/2) — showing app navigation to an unauthenticated visitor is
+  // confusing (the tabs 404/401 without a session) and was never part of
+  // the design for this screen.
+  if (pathname === "/login") {
+    return null;
+  }
+
   return (
     <nav aria-label="Основна навігація" className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-surface/90 backdrop-blur-lg shadow-xl">
       <div className="mx-auto flex max-w-md items-end justify-around px-2 py-2 pb-[env(safe-area-inset-bottom)]">

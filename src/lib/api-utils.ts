@@ -14,6 +14,16 @@ import { NextResponse } from "next/server";
 // Security headers
 // ============================================
 
+// NOTE (D3, deliverables/qa/communal-auth-gate-2026-09-16.md /
+// -2026-09-17-round2.md): this repo ships option **3b** for the auth
+// rollout (see ticket queue-20260917-0455-senior-fullstack-dev step 3 /
+// PR description) — web-only cookie auth today, APK knowingly dark until a
+// follow-up ticket adds token-based native auth. Wildcard ACAO stays as-is
+// deliberately: switching it to a credentialed per-origin CORS response
+// here with no client-side `credentials:"include"` change (out of THIS
+// ticket's scope, would be a cross-cutting native-client change) would be
+// dead code, not a fix. Do not "fix" this ACAO without also shipping the
+// native fetch changes in src/lib/api.ts — see the follow-up ticket.
 const SECURITY_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
