@@ -655,7 +655,7 @@ export default function SubmitPage() {
       {step === "submitting" && (
         <div className="flex flex-col items-center justify-center gap-4 pt-20 animate-fade-in" role="status" aria-live="polite">
           <Loader2 className="h-12 w-12 animate-spin text-primary-500" />
-          <p className="text-body text-muted-foreground">Передаю на EPS...</p>
+          <p className="text-body text-muted-foreground">Зберігаю показник...</p>
         </div>
       )}
 
@@ -668,23 +668,28 @@ export default function SubmitPage() {
           <div className="text-center">
             <h1 className="text-2xl font-bold tracking-tight">Готово! ✅</h1>
             <p className="text-body text-muted-foreground mt-1">
-              Показник <span className="font-semibold">{ocrValue} {selectedMeter.unit}</span> передано на EPS
+              Показник <span className="font-semibold">{ocrValue} {selectedMeter.unit}</span> збережено
             </p>
             <p className="text-xs text-muted-foreground mt-2">
               {selectedMeter.serviceName} • №{selectedMeter.meterNumber}
             </p>
           </div>
 
-          {/* EPS placeholder notice — Ukrainian throughout (design spec §4,
-              audit: an English string was leaking into an otherwise fully
-              localized flow). */}
-          {epsPlaceholder && (
-            <div className="rounded-2xl border border-warning/20 bg-warning-light p-3 text-center">
-              <p className="text-xs text-warning">
-                Інтеграція з EPS у розробці — показник збережено локально.
-              </p>
-            </div>
-          )}
+          {/* INVARIANT INV-3 (qa/TEST-STRATEGY.md §9, "правдивість підпису"):
+              no EPS integration exists in code (submittedToEps is always
+              false, see the postReading call above) — this notice must be
+              shown unconditionally on every success/offline path, not only
+              when the API call fails. Fixes QA D1
+              (deliverables/qa/TEST-PLAN-v0.6.md, communal-auth-gate round):
+              the old copy claimed "передано на EPS" and hid this disclaimer
+              on the happy path, which is the exact reverse of the truth. */}
+          <div className="rounded-2xl border border-warning/20 bg-warning-light p-3 text-center">
+            <p className="text-xs text-warning">
+              {epsPlaceholder
+                ? "Інтеграція з EPS у розробці — показник збережено локально."
+                : "Інтеграція з EPS у розробці — показник збережено в базі communal, у EPS вручну поки не передається."}
+            </p>
+          </div>
 
           <button
             onClick={handleReset}

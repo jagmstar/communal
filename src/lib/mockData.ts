@@ -1,12 +1,12 @@
-import { Meter, Reading, Tariff, Reminder, BillPrediction, ServiceType } from "./types";
+﻿import { Meter, Reading, Tariff, Reminder, BillPrediction, ServiceType } from "./types";
 
 export const mockMeters: Meter[] = [
   {
     id: "m1",
     meterNumber: "14091126",
     serviceType: "water",
-    serviceName: "Вода (гаряча)",
-    unit: "м³",
+    serviceName: "Р’РѕРґР° (РіР°СЂСЏС‡Р°)",
+    unit: "РјВі",
     lastReading: 182.34,
     lastReadingDate: "2026-07-31",
     submitDeadlineDay: 31,
@@ -19,8 +19,8 @@ export const mockMeters: Meter[] = [
     id: "m2",
     meterNumber: "14097821",
     serviceType: "water",
-    serviceName: "Вода (холодна)",
-    unit: "м³",
+    serviceName: "Р’РѕРґР° (С…РѕР»РѕРґРЅР°)",
+    unit: "РјВі",
     lastReading: 345.67,
     lastReadingDate: "2026-07-31",
     submitDeadlineDay: 31,
@@ -33,8 +33,8 @@ export const mockMeters: Meter[] = [
     id: "m3",
     meterNumber: "2400786276",
     serviceType: "electricity",
-    serviceName: "Електроенергія",
-    unit: "кВт·год",
+    serviceName: "Р•Р»РµРєС‚СЂРѕРµРЅРµСЂРіС–СЏ",
+    unit: "РєР’С‚В·РіРѕРґ",
     lastReading: 12453,
     lastReadingDate: "2026-07-31",
     submitDeadlineDay: 3,
@@ -47,8 +47,8 @@ export const mockMeters: Meter[] = [
     id: "m4",
     meterNumber: "98040",
     serviceType: "gas",
-    serviceName: "Газ",
-    unit: "м³",
+    serviceName: "Р“Р°Р·",
+    unit: "РјВі",
     lastReading: 5678,
     lastReadingDate: "2026-07-31",
     submitDeadlineDay: 5,
@@ -63,36 +63,36 @@ export const mockTariffs: Tariff[] = [
   {
     id: "t1",
     serviceType: "water",
-    serviceName: "Вода",
+    serviceName: "Р’РѕРґР°",
     value: 35.20,
-    unit: "₴/м³",
+    unit: "в‚ґ/РјВі",
     effectiveFrom: "2026-01-01",
     source: "eps",
   },
   {
     id: "t2",
     serviceType: "electricity",
-    serviceName: "Електроенергія",
+    serviceName: "Р•Р»РµРєС‚СЂРѕРµРЅРµСЂРіС–СЏ",
     value: 4.32,
-    unit: "₴/кВт·год",
+    unit: "в‚ґ/РєР’С‚В·РіРѕРґ",
     effectiveFrom: "2026-01-01",
     source: "nerc",
   },
   {
     id: "t3",
     serviceType: "gas",
-    serviceName: "Газ (розподіл)",
+    serviceName: "Р“Р°Р· (СЂРѕР·РїРѕРґС–Р»)",
     value: 7.99,
-    unit: "₴/м³",
+    unit: "в‚ґ/РјВі",
     effectiveFrom: "2026-01-01",
     source: "eps",
   },
   {
     id: "t4",
     serviceType: "gas",
-    serviceName: "Нафтогаз (постачання)",
+    serviceName: "РќР°С„С‚РѕРіР°Р· (РїРѕСЃС‚Р°С‡Р°РЅРЅСЏ)",
     value: 13.87,
-    unit: "₴/м³",
+    unit: "в‚ґ/РјВі",
     effectiveFrom: "2026-01-01",
     source: "naftogaz",
   },
@@ -100,28 +100,28 @@ export const mockTariffs: Tariff[] = [
 
 export const mockReadings: Reading[] = [
   // Water hot (m1)
-  { id: "r1", meterId: "m1", value: 178.12, date: "2026-05-31", ocrConfidence: 0.98, ocrEngine: "mlkit", submittedToEps: true, submittedAt: "2026-05-31T10:00:00" },
-  { id: "r2", meterId: "m1", value: 180.23, date: "2026-06-30", ocrConfidence: 0.95, ocrEngine: "mlkit", submittedToEps: true, submittedAt: "2026-06-30T10:00:00" },
-  { id: "r3", meterId: "m1", value: 182.34, date: "2026-07-31", ocrConfidence: 0.97, ocrEngine: "mlkit", submittedToEps: true, submittedAt: "2026-07-31T10:00:00" },
+  { id: "r1", meterId: "m1", value: 178.12, date: "2026-05-31", ocrConfidence: 0.98, ocrEngine: "mlkit", submittedToEps: false, submittedAt: "2026-05-31T10:00:00" },
+  { id: "r2", meterId: "m1", value: 180.23, date: "2026-06-30", ocrConfidence: 0.95, ocrEngine: "mlkit", submittedToEps: false, submittedAt: "2026-06-30T10:00:00" },
+  { id: "r3", meterId: "m1", value: 182.34, date: "2026-07-31", ocrConfidence: 0.97, ocrEngine: "mlkit", submittedToEps: false, submittedAt: "2026-07-31T10:00:00" },
   // Water cold (m2)
-  { id: "r4", meterId: "m2", value: 338.45, date: "2026-05-31", ocrConfidence: 0.96, ocrEngine: "mlkit", submittedToEps: true, submittedAt: "2026-05-31T10:00:00" },
-  { id: "r5", meterId: "m2", value: 342.01, date: "2026-06-30", ocrConfidence: 0.99, ocrEngine: "mlkit", submittedToEps: true, submittedAt: "2026-06-30T10:00:00" },
-  { id: "r6", meterId: "m2", value: 345.67, date: "2026-07-31", ocrConfidence: 0.94, ocrEngine: "mlkit", submittedToEps: true, submittedAt: "2026-07-31T10:00:00" },
+  { id: "r4", meterId: "m2", value: 338.45, date: "2026-05-31", ocrConfidence: 0.96, ocrEngine: "mlkit", submittedToEps: false, submittedAt: "2026-05-31T10:00:00" },
+  { id: "r5", meterId: "m2", value: 342.01, date: "2026-06-30", ocrConfidence: 0.99, ocrEngine: "mlkit", submittedToEps: false, submittedAt: "2026-06-30T10:00:00" },
+  { id: "r6", meterId: "m2", value: 345.67, date: "2026-07-31", ocrConfidence: 0.94, ocrEngine: "mlkit", submittedToEps: false, submittedAt: "2026-07-31T10:00:00" },
   // Electricity (m3)
-  { id: "r7", meterId: "m3", value: 11890, date: "2026-05-31", ocrConfidence: 0.92, ocrEngine: "mlkit", submittedToEps: true, submittedAt: "2026-05-31T10:00:00" },
-  { id: "r8", meterId: "m3", value: 12167, date: "2026-06-30", ocrConfidence: 0.96, ocrEngine: "mlkit", submittedToEps: true, submittedAt: "2026-06-30T10:00:00" },
-  { id: "r9", meterId: "m3", value: 12453, date: "2026-07-31", ocrConfidence: 0.98, ocrEngine: "mlkit", submittedToEps: true, submittedAt: "2026-07-31T10:00:00" },
+  { id: "r7", meterId: "m3", value: 11890, date: "2026-05-31", ocrConfidence: 0.92, ocrEngine: "mlkit", submittedToEps: false, submittedAt: "2026-05-31T10:00:00" },
+  { id: "r8", meterId: "m3", value: 12167, date: "2026-06-30", ocrConfidence: 0.96, ocrEngine: "mlkit", submittedToEps: false, submittedAt: "2026-06-30T10:00:00" },
+  { id: "r9", meterId: "m3", value: 12453, date: "2026-07-31", ocrConfidence: 0.98, ocrEngine: "mlkit", submittedToEps: false, submittedAt: "2026-07-31T10:00:00" },
   // Gas (m4)
-  { id: "r10", meterId: "m4", value: 5589, date: "2026-05-31", ocrConfidence: 0.91, ocrEngine: "mlkit", submittedToEps: true, submittedAt: "2026-05-31T10:00:00" },
-  { id: "r11", meterId: "m4", value: 5634, date: "2026-06-30", ocrConfidence: 0.93, ocrEngine: "mlkit", submittedToEps: true, submittedAt: "2026-06-30T10:00:00" },
-  { id: "r12", meterId: "m4", value: 5678, date: "2026-07-31", ocrConfidence: 0.97, ocrEngine: "mlkit", submittedToEps: true, submittedAt: "2026-07-31T10:00:00" },
+  { id: "r10", meterId: "m4", value: 5589, date: "2026-05-31", ocrConfidence: 0.91, ocrEngine: "mlkit", submittedToEps: false, submittedAt: "2026-05-31T10:00:00" },
+  { id: "r11", meterId: "m4", value: 5634, date: "2026-06-30", ocrConfidence: 0.93, ocrEngine: "mlkit", submittedToEps: false, submittedAt: "2026-06-30T10:00:00" },
+  { id: "r12", meterId: "m4", value: 5678, date: "2026-07-31", ocrConfidence: 0.97, ocrEngine: "mlkit", submittedToEps: false, submittedAt: "2026-07-31T10:00:00" },
 ];
 
 export const mockReminders: Reminder[] = [
   {
     id: "rem1",
     meterId: "m4",
-    serviceName: "Газ",
+    serviceName: "Р“Р°Р·",
     type: "reading",
     dueDate: "2026-08-05",
     daysLeft: 4,
@@ -130,7 +130,7 @@ export const mockReminders: Reminder[] = [
   {
     id: "rem2",
     meterId: "m3",
-    serviceName: "Електроенергія",
+    serviceName: "Р•Р»РµРєС‚СЂРѕРµРЅРµСЂРіС–СЏ",
     type: "reading",
     dueDate: "2026-08-03",
     daysLeft: 2,
@@ -139,7 +139,7 @@ export const mockReminders: Reminder[] = [
   {
     id: "rem3",
     meterId: "m1",
-    serviceName: "Вода",
+    serviceName: "Р’РѕРґР°",
     type: "reading",
     dueDate: "2026-08-31",
     daysLeft: 30,
@@ -150,7 +150,7 @@ export const mockReminders: Reminder[] = [
 export const mockBillPredictions: BillPrediction[] = [
   {
     meterId: "m1",
-    serviceName: "Вода (гаряча)",
+    serviceName: "Р’РѕРґР° (РіР°СЂСЏС‡Р°)",
     predictedUsage: 2.1,
     predictedAmount: 73.92,
     tariff: 35.20,
@@ -158,7 +158,7 @@ export const mockBillPredictions: BillPrediction[] = [
   },
   {
     meterId: "m2",
-    serviceName: "Вода (холодна)",
+    serviceName: "Р’РѕРґР° (С…РѕР»РѕРґРЅР°)",
     predictedUsage: 3.6,
     predictedAmount: 126.72,
     tariff: 35.20,
@@ -166,7 +166,7 @@ export const mockBillPredictions: BillPrediction[] = [
   },
   {
     meterId: "m3",
-    serviceName: "Електроенергія",
+    serviceName: "Р•Р»РµРєС‚СЂРѕРµРЅРµСЂРіС–СЏ",
     predictedUsage: 286,
     predictedAmount: 1235.52,
     tariff: 4.32,
@@ -174,7 +174,7 @@ export const mockBillPredictions: BillPrediction[] = [
   },
   {
     meterId: "m4",
-    serviceName: "Газ",
+    serviceName: "Р“Р°Р·",
     predictedUsage: 44,
     predictedAmount: 962.36,
     tariff: 21.87,
@@ -246,7 +246,7 @@ export function getBillChangeFactors(): {
     const costImpact = Math.round(usageDiff * tariffValue);
 
     if (Math.abs(usagePct) >= 1 || Math.abs(costImpact) >= 1) {
-      const sign = usageDiff > 0 ? "+" : "−";
+      const sign = usageDiff > 0 ? "+" : "в€’";
       factors.push({
         label: `${meter.serviceName} ${sign}${Math.abs(usagePct)}%`,
         impact: costImpact,
@@ -292,8 +292,8 @@ export function getSmartInsights(): {
   if (streakCount >= 3) {
     insights.push({
       type: "streak",
-      title: `🔥 ${streakCount} місяців підряд`,
-      description: "Передавав показники вчасно та без пропусків. Так тримати!",
+      title: `рџ”Ґ ${streakCount} РјС–СЃСЏС†С–РІ РїС–РґСЂСЏРґ`,
+      description: "РџРµСЂРµРґР°РІР°РІ РїРѕРєР°Р·РЅРёРєРё РІС‡Р°СЃРЅРѕ С‚Р° Р±РµР· РїСЂРѕРїСѓСЃРєС–РІ. РўР°Рє С‚СЂРёРјР°С‚Рё!",
       icon: "flame",
       color: "#f97316",
       bgColor: "#fff7ed",
@@ -314,13 +314,13 @@ export function getSmartInsights(): {
     if (prevUsage > 0) {
       const changePct = ((lastUsage - prevUsage) / prevUsage) * 100;
       if (Math.abs(changePct) >= 15) {
-        const sign = changePct > 0 ? "+" : "−";
+        const sign = changePct > 0 ? "+" : "в€’";
         insights.push({
           type: "anomaly",
-          title: `⚠ ${meter.serviceName} ${sign}${Math.abs(Math.round(changePct))}%`,
+          title: `вљ  ${meter.serviceName} ${sign}${Math.abs(Math.round(changePct))}%`,
           description: changePct > 0
-            ? `Витрата зросла на ${Math.abs(Math.round(changePct))}% vs попередній місяць. Можливий виток або новий прилад.`
-            : `Витрата знизилась на ${Math.abs(Math.round(changePct))}% vs попередній місяць. Хороша економія!`,
+            ? `Р’РёС‚СЂР°С‚Р° Р·СЂРѕСЃР»Р° РЅР° ${Math.abs(Math.round(changePct))}% vs РїРѕРїРµСЂРµРґРЅС–Р№ РјС–СЃСЏС†СЊ. РњРѕР¶Р»РёРІРёР№ РІРёС‚РѕРє Р°Р±Рѕ РЅРѕРІРёР№ РїСЂРёР»Р°Рґ.`
+            : `Р’РёС‚СЂР°С‚Р° Р·РЅРёР·РёР»Р°СЃСЊ РЅР° ${Math.abs(Math.round(changePct))}% vs РїРѕРїРµСЂРµРґРЅС–Р№ РјС–СЃСЏС†СЊ. РҐРѕСЂРѕС€Р° РµРєРѕРЅРѕРјС–СЏ!`,
           icon: "alert",
           color: changePct > 0 ? "#ef4444" : "#22c55e",
           bgColor: changePct > 0 ? "#fef2f2" : "#f0fdf4",
@@ -340,8 +340,8 @@ export function getSmartInsights(): {
       const treesEquiv = Math.round((monthlyUsage * 0.3) / 21); // 1 tree absorbs ~21kg CO2/yr
       insights.push({
         type: "green",
-        title: `🌿 ${co2kg} кг CO₂/міс`,
-        description: `Твоя електро-витрата = ${co2kg} кг CO₂. Еквівалент ${treesEquiv} дерев/рік. Знизь на 10% = ${Math.round(treesEquiv * 0.1)} дерев.`,
+        title: `рџЊї ${co2kg} РєРі COв‚‚/РјС–СЃ`,
+        description: `РўРІРѕСЏ РµР»РµРєС‚СЂРѕ-РІРёС‚СЂР°С‚Р° = ${co2kg} РєРі COв‚‚. Р•РєРІС–РІР°Р»РµРЅС‚ ${treesEquiv} РґРµСЂРµРІ/СЂС–Рє. Р—РЅРёР·СЊ РЅР° 10% = ${Math.round(treesEquiv * 0.1)} РґРµСЂРµРІ.`,
         icon: "leaf",
         color: "#22c55e",
         bgColor: "#f0fdf4",
@@ -352,8 +352,8 @@ export function getSmartInsights(): {
   // 4. Savings tip: electricity night tariff
   insights.push({
     type: "saving",
-    title: "💡 Зеконом ₴340/рік",
-    description: "Перенеси 20% електро на нічний тариф (23:00-07:00) — тариф вдвічі нижчий.",
+    title: "рџ’Ў Р—РµРєРѕРЅРѕРј в‚ґ340/СЂС–Рє",
+    description: "РџРµСЂРµРЅРµСЃРё 20% РµР»РµРєС‚СЂРѕ РЅР° РЅС–С‡РЅРёР№ С‚Р°СЂРёС„ (23:00-07:00) вЂ” С‚Р°СЂРёС„ РІРґРІС–С‡С– РЅРёР¶С‡РёР№.",
     icon: "zap",
     color: "#f59e0b",
     bgColor: "#fef3c7",
@@ -364,8 +364,8 @@ export function getSmartInsights(): {
   if (gasMeter) {
     insights.push({
       type: "tip",
-      title: "📊 Газ: сезонний патерн",
-      description: "Твій газ зростає на 40% у грудні-лютому. Запаси дров зараз = зекономиш ₴500/міс взимку.",
+      title: "рџ“Љ Р“Р°Р·: СЃРµР·РѕРЅРЅРёР№ РїР°С‚РµСЂРЅ",
+      description: "РўРІС–Р№ РіР°Р· Р·СЂРѕСЃС‚Р°С” РЅР° 40% Сѓ РіСЂСѓРґРЅС–-Р»СЋС‚РѕРјСѓ. Р—Р°РїР°СЃРё РґСЂРѕРІ Р·Р°СЂР°Р· = Р·РµРєРѕРЅРѕРјРёС€ в‚ґ500/РјС–СЃ РІР·РёРјРєСѓ.",
       icon: "lightbulb",
       color: "#14b8a6",
       bgColor: "#f0fdfa",

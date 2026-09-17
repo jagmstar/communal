@@ -154,6 +154,13 @@ describe("SubmitPage — successful submission", () => {
       })
     );
     expect(screen.getByText(/150 м³/)).toBeInTheDocument();
+    // INVARIANT INV-3 (qa/TEST-STRATEGY.md §9): no EPS integration exists,
+    // so the "no EPS integration yet" disclaimer must be visible on the
+    // happy path too, not only on the offline-fallback path (was QA D1,
+    // qa/TEST-PLAN-v0.6.md — success screen used to claim "передано на EPS"
+    // while hiding this exact notice).
+    expect(screen.getByText(/Інтеграція з EPS у розробці/)).toBeInTheDocument();
+    expect(screen.queryByText(/передано на EPS/)).not.toBeInTheDocument();
   });
 
   it("shows the local-save notice when the API call fails (offline fallback)", async () => {
