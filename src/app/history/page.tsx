@@ -6,13 +6,13 @@ import {
   Droplet, Zap, Flame, Building, Receipt, Thermometer,
   TrendingUp, TrendingDown, Minus, Download, ChevronDown,
 } from "lucide-react";
-import { fetchMeters, fetchReadings, fetchTariffs } from "@/lib/api";
+import { fetchMeters, fetchReadings, fetchTariffs, fetchPaymentsHistory } from "@/lib/api";
 import { computeMonthlyUsage, getAvailableYears } from "@/lib/calculations";
 import { UsageChart } from "@/components/UsageChart";
 import { ChartErrorBoundary } from "@/components/ChartErrorBoundary";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
-import type { Meter, Reading, Tariff } from "@/lib/types";
+import type { Meter, Reading, Tariff, PaymentHistoryEntry } from "@/lib/types";
 
 const iconMap: Record<string, React.ComponentType<{ className?: string; strokeWidth?: number }>> = {
   droplet: Droplet,
@@ -82,6 +82,8 @@ export default function HistoryPage() {
   const [meters, setMeters] = useState<Meter[]>([]);
   const [readings, setReadings] = useState<Reading[]>([]);
   const [tariffs, setTariffs] = useState<Tariff[]>([]);
+  const [payments, setPayments] = useState<PaymentHistoryEntry[]>([]);
+  const [paymentsError, setPaymentsError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [selectedMeterId, setSelectedMeterId] = useState<string>("");
@@ -114,6 +116,16 @@ export default function HistoryPage() {
       }
     }
     loadData();
+
+    // Payments history is fetched independently of the meters/readings/
+    // tariffs Promise.all above — it's a newer endpoint
+    // (komunalka-eps-real-data-20260917b) backed by a still-growing snapshot
+    // table, so a failure here (or an empty rolling window) must not take
+    // down the whole page the way a meters/readings failure does.
+    fetchPaymentsHistory()
+      .then((data) => { if (!cancelled) setPayments(data); })
+      .catch(() => { if (!cancelled) setPaymentsError(true); });
+
     return () => { cancelled = true; };
   }, []);
 
@@ -441,6 +453,70 @@ export default function HistoryPage() {
           </section>
         </>
       )}
+
+      {/* Real EPS payments history (komunalka-eps-real-data-20260917b).
+          Backed by payments_history — a periodic snapshot of Roman's public
+          EPS view-link, currently a rolling ~2-month window (see
+          docs/EPS-INTEGRATION-RECON-2026-09-17.md). This is REAL data, not
+          mock — but it is not yet "вся історія" (full history), so the
+          empty/partial states below are honest about that gap rather than
+          implying more coverage than exists. */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Оплати</h2>
+          {payments.length > 0 && (
+            <span className="text-xs text-muted-foreground">
+              Дані з EPS • оновлено {new Date(payments[0].fetchedAt).toLocaleDateString("uk-UA", { day: "numeric", month: "short" })}
+            </span>
+          )}
+        </div>
+
+        {paymentsError ? (
+          <div className="rounded-2xl border border-dashed border-border bg-muted/30 p-4 text-center">
+            <p className="text-body text-muted-foreground">
+              Не вдалося завантажити історію оплат.
+            </p>
+          </div>
+        ) : payments.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-border bg-muted/30 p-4 text-center">
+            <p className="text-body text-muted-foreground">
+              Ще накопичуємо дані з EPS — перший снапшот з&apos;явиться найближчим часом.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="rounded-2xl border border-border bg-surface overflow-hidden">
+              <div className="flex items-center gap-3 border-b border-border bg-muted/30 px-4 py-2">
+                <span className="flex-1 text-xs font-semibold text-muted-foreground">Послуга</span>
+                <span className="text-xs font-semibold text-muted-foreground">Місяць</span>
+                <span className="w-20 text-right text-xs font-semibold text-muted-foreground">Залишок</span>
+              </div>
+              {payments.map((p, idx) => (
+                <div
+                  key={p.id}
+                  className={`flex items-center gap-3 px-4 py-3 ${
+                    idx < payments.length - 1 ? "border-b border-border" : ""
+                  }`}
+                >
+                  <span className="flex-1 text-body text-foreground truncate">{p.serviceName}</span>
+                  <span className="text-body text-muted-foreground">{p.period}</span>
+                  <span
+                    className={`w-20 text-right text-body font-semibold tabular-nums ${
+                      p.balance > 0 ? "text-danger" : p.balance < 0 ? "text-success" : "text-muted-foreground"
+                    }`}
+                  >
+                    {p.balance.toLocaleString("uk-UA", { minimumFractionDigits: 2 })} ₴
+                  </span>
+                </div>
+              ))}
+            </div>
+            {/* Honest coverage note — rolling window per recon, komunalka-eps-real-data-20260917b */}
+            <p className="text-xs text-muted-foreground text-center">
+              Показано доступний період з EPS. Повна історія додасться після експорту з кабінету.
+            </p>
+          </>
+        )}
+      </section>
 
       {/* Year-over-year placeholder (AC-5.6). Copy softened per design spec
           §4: the old wording ("будуть доступні після 6 місяців

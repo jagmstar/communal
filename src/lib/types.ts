@@ -67,6 +67,28 @@ export interface Settings {
   userAddress: string | null;
 }
 
+/**
+ * Real EPS payment/charge history entry (komunalka-eps-real-data-20260917b).
+ * Backed by the `payments_history` table — see
+ * src/lib/db/migrations/2026-09-17-eps-history.sql. Never generated from
+ * mock/seed data; `source` distinguishes how this row was captured.
+ */
+export interface PaymentHistoryEntry {
+  id: string;
+  serviceName: string;
+  payerNumber: string;
+  period: string;
+  debtBefore: number;
+  paidLastMonth: number;
+  charged: number;
+  subsidy: number;
+  dueAmount: number;
+  paidThisMonth: number;
+  balance: number;
+  source: "snapshot" | "cabinet_export" | "manual";
+  fetchedAt: string;
+}
+
 export interface NotificationSettings {
   reading: boolean;
   payment: boolean;

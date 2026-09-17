@@ -6,7 +6,7 @@
  * to camelCase TypeScript interfaces.
  */
 
-import type { Meter, Reading, Tariff, Settings, ServiceType } from "../types";
+import type { Meter, Reading, Tariff, Settings, ServiceType, PaymentHistoryEntry } from "../types";
 import { getSql } from "./client";
 
 // ============================================
@@ -226,6 +226,64 @@ export async function getTariffs(): Promise<Tariff[]> {
   const sql = getSql();
   const rows = (await sql`SELECT * FROM tariffs ORDER BY effective_from DESC`) as TariffRow[];
   return rows.map((row) => mapTariff(row));
+}
+
+// ============================================
+// EPS history (komunalka-eps-real-data-20260917b)
+// ============================================
+
+interface PaymentHistoryRow {
+  id: string;
+  service_name: string;
+  payer_number: string;
+  period: string;
+  debt_before: string | null;
+  paid_last_month: string | null;
+  charged: string | null;
+  subsidy: string | null;
+  due_amount: string | null;
+  paid_this_month: string | null;
+  balance: string | null;
+  source: "snapshot" | "cabinet_export" | "manual";
+  fetched_at: string;
+}
+
+function mapPaymentHistory(row: PaymentHistoryRow): PaymentHistoryEntry {
+  return {
+    id: row.id,
+    serviceName: row.service_name,
+    payerNumber: row.payer_number,
+    period: row.period,
+    debtBefore: row.debt_before !== null ? parseFloat(row.debt_before) : 0,
+    paidLastMonth: row.paid_last_month !== null ? parseFloat(row.paid_last_month) : 0,
+    charged: row.charged !== null ? parseFloat(row.charged) : 0,
+    subsidy: row.subsidy !== null ? parseFloat(row.subsidy) : 0,
+    dueAmount: row.due_amount !== null ? parseFloat(row.due_amount) : 0,
+    paidThisMonth: row.paid_this_month !== null ? parseFloat(row.paid_this_month) : 0,
+    balance: row.balance !== null ? parseFloat(row.balance) : 0,
+    source: row.source,
+    fetchedAt: row.fetched_at,
+  };
+}
+
+/**
+ * Get real EPS payment history (readings_history/payments_history tables,
+ * see src/lib/db/migrations/2026-09-17-eps-history.sql). This is REAL data
+ * captured from Roman's actual EPS account — either a periodic snapshot of
+ * the public view-link (source='snapshot', currently ~2-month rolling
+ * window), a future authenticated cabinet export (source='cabinet_export'),
+ * or a manual entry (source='manual'). There is no fake/seed data in these
+ * tables — unlike the legacy `readings` table, nothing here was ever
+ * generated from mockData.ts.
+ * @returns Array of PaymentHistoryEntry sorted by fetched_at descending (most recent snapshot first)
+ */
+export async function getPaymentsHistory(): Promise<PaymentHistoryEntry[]> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT * FROM payments_history
+    ORDER BY fetched_at DESC, payer_number
+  `) as PaymentHistoryRow[];
+  return rows.map(mapPaymentHistory);
 }
 
 /**
