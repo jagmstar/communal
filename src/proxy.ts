@@ -20,13 +20,15 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { hasValidSession } from "@/lib/session";
 
-// Runtime: proxy.ts defaults to Node.js since Next 16 (this project's
-// installed version, package.json "next": "16.3.2") — required here because
-// lib/session.ts uses node:crypto (createHmac/timingSafeEqual), which the
-// Edge runtime does not support. Declared explicitly so a future Next
-// upgrade can't silently flip this back to Edge and break auth.
-export const runtime = "nodejs";
-
+// Runtime: proxy.ts ALWAYS runs on Node.js in Next 16 (this project's
+// installed version, package.json "next": "16.3.2") — the `runtime` export
+// is illegal here (build error: "Route segment config is not allowed in
+// Proxy file ... Proxy always runs on Node.js runtime", confirmed via a
+// failed `vercel --prod` build this ticket). This is exactly what
+// lib/session.ts needs: it uses node:crypto (createHmac/timingSafeEqual),
+// which the Edge runtime does not support — Next 16's Node-by-default proxy
+// makes that automatic, nothing to declare.
+//
 // Routes that must stay reachable with NO session (killtest "public" list,
 // deliverables/qa/communal-auth-killtest.ps1 $public).
 const PUBLIC_PATHS = new Set(["/login", "/api/login", "/api/health"]);
