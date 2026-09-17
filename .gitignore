@@ -47,3 +47,9 @@ dev_stderr.txt
 current_screenshot.png
 dev-stderr.log
 dev-stdout.log
+
+# EPS snapshot raw data — contains Roman's real financial data (balances,
+# debt, payment history). The parsed rows already live in Neon
+# (readings_history/payments_history); these on-disk copies are audit-only
+# and must never be committed. (komunalka-eps-real-data-20260917b)
+/data/eps-snapshots/
