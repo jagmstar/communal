@@ -102,12 +102,16 @@ describe("proxy — auth gate (ticket queue-20260917-0455-senior-fullstack-dev)"
 });
 
 describe("proxy — CORS preflight", () => {
+  // ACAO is the native app's fixed origin (was "*" until the APK auth fix,
+  // 2026-09-17) — a wildcard is incompatible with the credentialed
+  // (cookie) requests the native client now sends. See src/lib/cors.ts.
   it("returns 204 with CORS headers for OPTIONS on /api/* (no session needed for preflight)", () => {
     const req = makeRequest("OPTIONS", { path: "/api/meters" });
     const res = proxy(req);
 
     expect(res.status).toBe(204);
-    expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe("https://localhost");
+    expect(res.headers.get("Access-Control-Allow-Credentials")).toBe("true");
     expect(res.headers.get("Access-Control-Allow-Methods")).toBe(
       "GET, POST, PUT, OPTIONS"
     );
@@ -121,7 +125,34 @@ describe("proxy — CORS preflight", () => {
     const req = makeRequest("OPTIONS", { path: "/api/readings" });
     const res = proxy(req);
     expect(res.status).toBe(204);
-    expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe("https://localhost");
+  });
+
+  // Regression test for the actual bug found in this ticket's own emulator
+  // QA run, 2026-09-17: /api/login and /api/health are in PUBLIC_PATHS, and
+  // the OPTIONS handling used to run AFTER the public-path passthrough —
+  // so their preflight got a bare NextResponse.next() with NO CORS headers
+  // at all. A same-origin web caller never preflights, so this was
+  // invisible on web; the native app's cross-origin POST to /api/login
+  // always preflights, and a headerless-ACAO preflight response makes the
+  // browser/WebView block the real POST before it is ever sent
+  // (net::ERR_FAILED -> "Помилка мережі" on the login screen).
+  it.each(["/api/login", "/api/health"])(
+    "returns CORS headers for OPTIONS preflight on public path %s, not a bare passthrough",
+    (path) => {
+      const req = makeRequest("OPTIONS", { path });
+      const res = proxy(req);
+      expect(res.status).toBe(204);
+      expect(res.headers.get("Access-Control-Allow-Origin")).toBe("https://localhost");
+      expect(res.headers.get("Access-Control-Allow-Credentials")).toBe("true");
+      expect(res.headers.get("Access-Control-Max-Age")).toBe("86400");
+    }
+  );
+
+  it("still lets a non-OPTIONS request to a public path through with no CORS-preflight branch taken", () => {
+    const req = makeRequest("GET", { path: "/api/login" });
+    const res = proxy(req);
+    expect(res.status).toBe(200); // NextResponse.next() passthrough, not 204
   });
 });
 
@@ -152,7 +183,7 @@ describe("proxy — rate limiting (authenticated writes)", () => {
     }
     expect(lastRes!.status).toBe(429);
     expect(lastRes!.headers.get("Retry-After")).toBe("60");
-    expect(lastRes!.headers.get("Access-Control-Allow-Origin")).toBe("*");
+    expect(lastRes!.headers.get("Access-Control-Allow-Origin")).toBe("https://localhost");
   });
 
   it("tracks PUT requests against the same per-IP write budget as POST", () => {

@@ -51,12 +51,15 @@ describe("session cookie value", () => {
 });
 
 describe("Set-Cookie headers", () => {
-  it("setSessionCookieHeader includes HttpOnly, Secure, SameSite=Lax, 30-day Max-Age", () => {
+  // SameSite=None (was Lax) as of the APK auth fix, 2026-09-17: the native
+  // app's requests are cross-site, and SameSite=Lax never attaches to a
+  // cross-site fetch — see the comment on setSessionCookieHeader.
+  it("setSessionCookieHeader includes HttpOnly, Secure, SameSite=None, 30-day Max-Age", () => {
     const header = setSessionCookieHeader();
     expect(header).toContain(`${COOKIE_NAME}=`);
     expect(header).toContain("HttpOnly");
     expect(header).toContain("Secure");
-    expect(header).toContain("SameSite=Lax");
+    expect(header).toContain("SameSite=None");
     expect(header).toContain(`Max-Age=${60 * 60 * 24 * 30}`);
   });
 

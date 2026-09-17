@@ -89,13 +89,22 @@ export function hasValidSession(req: NextRequest): boolean {
   return isValidSessionValue(cookies[COOKIE_NAME]);
 }
 
+// SameSite=None (was Lax until the APK auth fix, 2026-09-17): the native
+// app's fetch() calls are cross-SITE requests (WebView origin
+// https://localhost -> https://communal-navy.vercel.app) with
+// credentials:"include" (src/lib/api.ts). A cross-site request never sends
+// a SameSite=Lax/Strict cookie at all -- Lax only covers same-site + certain
+// top-level navigations -- so the APK would authenticate via /api/login
+// (200, Set-Cookie received) and then get 401 on the very next call because
+// the cookie was silently withheld. SameSite=None requires Secure (already
+// set); it does not weaken the web flow, which is same-origin either way.
 export function setSessionCookieHeader(): string {
   const value = makeSessionCookieValue();
-  return `${COOKIE_NAME}=${value}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_TTL_SECONDS}`;
+  return `${COOKIE_NAME}=${value}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=${SESSION_TTL_SECONDS}`;
 }
 
 export function clearSessionCookieHeader(): string {
-  return `${COOKIE_NAME}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
+  return `${COOKIE_NAME}=; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=0`;
 }
 
 function timingSafeEqualStr(a: string, b: string): boolean {

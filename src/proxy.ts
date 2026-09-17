@@ -19,6 +19,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { hasValidSession } from "@/lib/session";
+import { CORS_HEADERS } from "@/lib/cors";
 
 // Runtime: proxy.ts ALWAYS runs on Node.js in Next 16 (this project's
 // installed version, package.json "next": "16.3.2") — the `runtime` export
@@ -97,6 +98,29 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // CORS preflight for ANY /api/* path, INCLUDING the public ones
+  // (/api/login, /api/health) — must run before the public-path
+  // passthrough below. Bug found in this ticket's own emulator QA run,
+  // 2026-09-17: /api/login used to fall into the `PUBLIC_PATHS` branch
+  // and get a bare `NextResponse.next()` for its OPTIONS preflight, which
+  // carries NO Access-Control-Allow-Origin header at all (confirmed via a
+  // live CDP Network capture — the 204 had allow/cache-control/date/server
+  // headers only, no CORS headers). A same-origin web browser never
+  // preflights at all, but the native app's cross-origin POST to
+  // /api/login always does, and a preflight response with no ACAO makes
+  // the browser/WebView block the real POST before it is ever sent
+  // (net::ERR_FAILED, surfaced to the user as "Помилка мережі"). This was
+  // the actual reason login never completed on native even after 3b/3c.
+  if (pathname.startsWith("/api") && request.method === "OPTIONS") {
+    return new NextResponse(null, {
+      status: 204,
+      headers: {
+        ...CORS_HEADERS,
+        "Access-Control-Max-Age": "86400",
+      },
+    });
+  }
+
   // Public allowlist: reachable with no session, always (killtest $public).
   if (PUBLIC_PATHS.has(pathname)) {
     return NextResponse.next();
@@ -117,25 +141,10 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // --- /api/* below (excluding the PUBLIC_PATHS handled above) ---
+  // --- /api/* below (excluding the PUBLIC_PATHS handled above; OPTIONS on
+  // any /api/* path, public or not, was already answered above) ---
 
   cleanupExpiredEntries();
-
-  // Handle CORS preflight — must be answered before the auth check: a
-  // preflight OPTIONS request never carries the app's cookies/credentials,
-  // so gating it on session would break every cross-origin caller's actual
-  // (post-preflight) request before it's even sent.
-  if (request.method === "OPTIONS") {
-    return new NextResponse(null, {
-      status: 204,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        "Access-Control-Max-Age": "86400",
-      },
-    });
-  }
 
   // INVARIANT auth#1 (ticket queue-20260917-0455-senior-fullstack-dev step 2):
   // every /api/* route outside PUBLIC_PATHS requires a valid session cookie.
@@ -146,7 +155,7 @@ export function proxy(request: NextRequest) {
   if (!hasValidSession(request)) {
     return NextResponse.json(
       { error: "unauthorized" },
-      { status: 401, headers: { "Access-Control-Allow-Origin": "*" } }
+      { status: 401, headers: CORS_HEADERS }
     );
   }
 
@@ -163,10 +172,7 @@ export function proxy(request: NextRequest) {
         { error: "Занадто багато запитів. Спробуйте пізніше." },
         {
           status: 429,
-          headers: {
-            "Access-Control-Allow-Origin": "*",
-            "Retry-After": "60",
-          },
+          headers: { ...CORS_HEADERS, "Retry-After": "60" },
         }
       );
     }

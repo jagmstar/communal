@@ -104,6 +104,8 @@ describe("GET /api/meters", () => {
 
     expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
     expect(response.headers.get("X-Frame-Options")).toBe("DENY");
-    expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
+    // ACAO is the native app's fixed origin (was "*" until the APK auth
+    // fix, 2026-09-17) — see src/lib/cors.ts.
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe("https://localhost");
   });
 });

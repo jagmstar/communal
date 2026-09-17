@@ -9,6 +9,7 @@
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Lock, Loader2 } from "lucide-react";
+import { postLogin } from "@/lib/api";
 
 function LoginForm() {
   const router = useRouter();
@@ -22,16 +23,15 @@ function LoginForm() {
     setError("");
     setSubmitting(true);
     try {
-      const res = await fetch("/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
-      });
-      if (res.ok) {
+      // Absolute URL on native (API_BASE), relative on web — see
+      // src/lib/api.ts postLogin(). A plain fetch("/api/login") 404s in the
+      // APK: the app runs from static dist/ assets with no local API server.
+      const { ok, status } = await postLogin(password);
+      if (ok) {
         const next = searchParams.get("next") || "/";
         router.replace(next);
         router.refresh();
-      } else if (res.status === 429) {
+      } else if (status === 429) {
         setError("Забагато спроб. Зачекайте хвилину і спробуйте ще раз.");
       } else {
         setError("Невірний пароль.");

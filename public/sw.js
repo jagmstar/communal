@@ -51,6 +51,23 @@ self.addEventListener("fetch", (event) => {
   // Skip non-http(s) requests (e.g. chrome-extension://)
   if (!url.protocol.startsWith("http")) return;
 
+  // Cross-origin requests: never intercept. Bug found in the APK auth fix
+  // ticket, 2026-09-17 -- on native (Capacitor), the app calls the deployed
+  // backend at a DIFFERENT origin (communal-navy.vercel.app) than the SW's
+  // own origin (https://localhost). Re-issuing an intercepted cross-origin
+  // request via this SW's own `fetch(request)` (below) silently drops the
+  // session cookie -- confirmed via a live CDP Network capture: the
+  // service-worker-served response came back 401 with NO Cookie header on
+  // the outgoing request at all, even though the same fetch call made
+  // directly from the page (SW unregistered) carried the cookie correctly
+  // and returned 200. On web this never mattered because the web app's API
+  // calls are same-origin relative fetches (this SW's whole scope). Let
+  // the browser/WebView handle any cross-origin request exactly as the
+  // page issued it -- offline caching of a cross-origin credentialed API
+  // response was never a real feature to begin with (the runtime cache
+  // below only ever populated for same-origin, pre-native).
+  if (url.origin !== self.location.origin) return;
+
   // API requests: network-first, fall back to cache
   if (url.pathname.startsWith("/api/")) {
     event.respondWith(

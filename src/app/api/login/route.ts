@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { setSessionCookieHeader, timingSafeEqualStr } from "@/lib/session";
+import { CORS_HEADERS } from "@/lib/cors";
 
 // ---------------------------------------------------------------------------
 // Login audit log — same fingerprinting approach as cloud-dashboard/api/login.js:
@@ -71,20 +72,37 @@ function isRateLimited(key: string): boolean {
 }
 
 export async function GET() {
-  return NextResponse.json({ error: "method_not_allowed" }, { status: 405 });
+  return NextResponse.json(
+    { error: "method_not_allowed" },
+    { status: 405, headers: CORS_HEADERS }
+  );
 }
 
+// /api/login is outside the SECURITY_HEADERS-wrapped apiSuccess/apiError
+// helpers (api-utils.ts) — it predates them and returns its own shapes
+// ({ ok, error } instead of { data }/{ error }), so CORS_HEADERS is applied
+// directly on every response here. Missing it on ANY response (including
+// error paths) breaks the native login flow: a credentialed cross-origin
+// response with no Access-Control-Allow-Origin is discarded by the
+// WebView/fetch CORS algorithm before the caller's .then()/.catch() ever
+// sees it, regardless of the HTTP status code.
 export async function POST(request: NextRequest) {
   let body: Record<string, unknown>;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "invalid_json" }, { status: 400 });
+    return NextResponse.json(
+      { error: "invalid_json" },
+      { status: 400, headers: CORS_HEADERS }
+    );
   }
 
   const key = ipFingerprint(clientIp(request));
   if (isRateLimited(key)) {
-    return NextResponse.json({ error: "too_many_attempts" }, { status: 429 });
+    return NextResponse.json(
+      { error: "too_many_attempts" },
+      { status: 429, headers: CORS_HEADERS }
+    );
   }
 
   const password = typeof body.password === "string" ? body.password : "";
@@ -93,7 +111,7 @@ export async function POST(request: NextRequest) {
   if (!expected) {
     return NextResponse.json(
       { error: "server_misconfigured", message: "COMMUNAL_PASSWORD not set" },
-      { status: 500 }
+      { status: 500, headers: CORS_HEADERS }
     );
   }
 
@@ -101,10 +119,13 @@ export async function POST(request: NextRequest) {
   logLoginAttempt(request, ok);
 
   if (!ok) {
-    return NextResponse.json({ ok: false, error: "wrong_password" }, { status: 401 });
+    return NextResponse.json(
+      { ok: false, error: "wrong_password" },
+      { status: 401, headers: CORS_HEADERS }
+    );
   }
 
-  const res = NextResponse.json({ ok: true });
+  const res = NextResponse.json({ ok: true }, { headers: CORS_HEADERS });
   res.headers.set("Set-Cookie", setSessionCookieHeader());
   return res;
 }
