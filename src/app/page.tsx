@@ -178,21 +178,41 @@ export default function HomePage() {
                 </div>
                 <span className="flex-1 text-body text-foreground">{pred.serviceName}</span>
                 <div className="text-right">
-                  <p className="text-body font-semibold tabular-nums">
-                    {pred.predictedAmount.toLocaleString("uk-UA", { minimumFractionDigits: 2 })} ₴
-                  </p>
-                  <p className="text-xs text-muted-foreground tabular-nums">
-                    {pred.predictedUsage} {meter?.unit}
-                  </p>
+                  {/* Sanity gate (fix-communal-impossible-bill-forecast, 2026-09-20,
+                      task 2): an absurd/unsupported figure is worse than none — show
+                      "дані уточнюються" instead of a fabricated ₴ amount when
+                      dataSufficient is false (missing tariff, <2 readings, or a
+                      usage delta bigger than the meter's own last reading). */}
+                  {pred.dataSufficient ? (
+                    <>
+                      <p className="text-body font-semibold tabular-nums">
+                        {pred.predictedAmount!.toLocaleString("uk-UA", { minimumFractionDigits: 2 })} ₴
+                      </p>
+                      <p className="text-xs text-muted-foreground tabular-nums">
+                        {pred.predictedUsage} {meter?.unit}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-xs text-muted-foreground italic">дані уточнюються</p>
+                  )}
                 </div>
               </div>
             );
           })}
-          <div className="flex items-center justify-between border-t-2 border-border-strong bg-muted/30 p-3">
-            <span className="font-semibold">Разом</span>
-            <span className="font-bold text-lg tabular-nums">
-              {totalBill.toLocaleString("uk-UA", { minimumFractionDigits: 2 })} ₴
-            </span>
+          <div className="border-t-2 border-border-strong bg-muted/30 p-3">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold">Разом</span>
+              <span className="font-bold text-lg tabular-nums">
+                {totalBill.toLocaleString("uk-UA", { minimumFractionDigits: 2 })} ₴
+              </span>
+            </div>
+            {/* Task 3: never let "Разом" silently look complete while a
+                position was excluded as unsafe/untariffed — say so. */}
+            {billPredictions.some((p) => !p.dataSufficient) && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Без урахування позицій «дані уточнюються» вище
+              </p>
+            )}
           </div>
         </div>
       </section>

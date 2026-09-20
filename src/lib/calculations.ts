@@ -36,6 +36,27 @@ function nonNegativeDelta(currValue: number, prevValue: number): number {
 }
 
 /**
+ * Sanity gate (ticket fix-communal-impossible-bill-forecast, 2026-09-20,
+ * AC: "якщо спожито > останній_показник ... не показувати цифру").
+ *
+ * A month's usage delta can never legitimately exceed the meter's own
+ * current cumulative reading — the delta is a SUBSET of what the dial
+ * shows, never more than the whole. When it is, the two readings being
+ * diffed do not belong to the same real-world series (root cause found
+ * live in Neon 2026-09-20: electricity meter 2400786276's `readings` rows
+ * were `3529` from the real EPS snapshot [2026-09-05] and `12600` from an
+ * unrelated QA test submission [2026-09-16, id 5c1f5917] that was never
+ * reconciled against `meters.last_reading` — diffing them produced
+ * 12600-3529=9071, the exact bogus figure Roman saw). An absurd number is
+ * worse than a missing one — callers MUST treat `false` as "do not render
+ * this as a bill figure", not as "render 0".
+ */
+export function isPlausibleUsage(usage: number, meterLastReading: number | null): boolean {
+  if (meterLastReading === null || meterLastReading <= 0) return true; // nothing to sanity-check against
+  return usage <= meterLastReading;
+}
+
+/**
  * Ukrainian pluralization helper.
  * Returns the correct form of a word based on the count.
  * Ukrainian has three plural forms: one, few (2-4), many (5+).
@@ -88,9 +109,21 @@ export function computeMonthlyUsage(
   return usage;
 }
 
-/** Calculate total predicted bill from bill predictions */
+/**
+ * Calculate total predicted bill from bill predictions.
+ *
+ * INVARIANT (fix-communal-impossible-bill-forecast, 2026-09-20): "Разом"
+ * must never include a prediction whose usage failed the sanity gate
+ * (`dataSufficient === false`) — that's the exact bug where an electricity
+ * delta bigger than the meter's own reading (9071 vs 3529 кВт·год) blew up
+ * the total to 39 186,72 ₴. Skipping unsufficient rows means "Разом" is
+ * always the honest sum of what we actually trust, never inflated by a
+ * value we're about to hide from the UI anyway.
+ */
 export function computeTotalPredictedBill(predictions: BillPrediction[]): number {
-  return predictions.reduce((sum, p) => sum + p.predictedAmount, 0);
+  return predictions
+    .filter((p) => p.dataSufficient)
+    .reduce((sum, p) => sum + (p.predictedAmount ?? 0), 0);
 }
 
 /**
@@ -124,6 +157,16 @@ export function computeBillChangeFactors(
 
     // Non-decreasing assumption guard — see nonNegativeDelta() (ticket #1, AC-6).
     const lastUsage = nonNegativeDelta(last.value, prev.value);
+
+    // Sanity gate (ticket fix-communal-impossible-bill-forecast, 2026-09-20):
+    // same physical-impossibility check as computeBillPredictions() — a
+    // mismatched-source pair of readings (e.g. a stray test row diffed
+    // against a real EPS snapshot) must not feed "Зміна vs <month>" either,
+    // since that's the exact +23 941 ₴ / +157% line Roman saw driven by the
+    // same 9071 кВт·год delta. Skip this meter's contribution entirely
+    // rather than let one impossible number poison the whole comparison.
+    if (!isPlausibleUsage(lastUsage, meter.lastReading)) continue;
+
     const prevUsage =
       meterReadings.length >= 3
         ? nonNegativeDelta(prev.value, meterReadings[meterReadings.length - 3].value)
@@ -216,6 +259,11 @@ export function computeSmartInsights(
       meterReadings[meterReadings.length - 2].value -
       meterReadings[meterReadings.length - 3].value;
 
+    // Sanity gate — same mismatched-source-readings defect as the bill
+    // forecast (fix-communal-impossible-bill-forecast, 2026-09-20): don't
+    // report an "anomaly %" built on a physically impossible delta.
+    if (!isPlausibleUsage(Math.abs(lastUsage), meter.lastReading)) continue;
+
     if (prevUsage > 0) {
       const changePct = ((lastUsage - prevUsage) / prevUsage) * 100;
       if (Math.abs(changePct) >= 15) {
@@ -235,26 +283,36 @@ export function computeSmartInsights(
     }
   }
 
-  // 3. Carbon footprint from electricity
+  // 3. Carbon footprint from electricity.
+  // Sanity gate (ticket fix-communal-impossible-bill-forecast, 2026-09-20,
+  // task 4 "Перерахувати CO₂-підказку після фікса"): this card inherited
+  // the exact same bogus 9071 кВт·год delta as the bill forecast (it does
+  // its own independent last-minus-prev diff), which is how "🌿 2721.3 кг
+  // CO₂/міс ... 130 дерев/рік" reached the screen. Apply the same
+  // nonNegativeDelta + isPlausibleUsage gate used in computeBillPredictions
+  // — skip the card entirely rather than show a number derived from
+  // mismatched-source readings.
   const elecMeter = meters.find((m) => m.serviceType === "electricity");
   if (elecMeter) {
     const meterReadings = readings
       .filter((r) => r.meterId === elecMeter.id)
       .sort((a, b) => a.date.localeCompare(b.date));
     if (meterReadings.length >= 2) {
-      const monthlyUsage =
-        meterReadings[meterReadings.length - 1].value -
-        meterReadings[meterReadings.length - 2].value;
-      const co2kg = (monthlyUsage * 0.3).toFixed(1);
-      const treesEquiv = Math.round((monthlyUsage * 0.3) / 21);
-      insights.push({
-        type: "green",
-        title: `🌿 ${co2kg} кг CO₂/міс`,
-        description: `Твоя електро-витрата = ${co2kg} кг CO₂. Еквівалент ${treesEquiv} дерев/рік. Знизь на 10% = ${Math.round(treesEquiv * 0.1)} дерев.`,
-        icon: "leaf",
-        color: "#22c55e",
-        bgColor: "#f0fdf4",
-      });
+      const last = meterReadings[meterReadings.length - 1];
+      const prev = meterReadings[meterReadings.length - 2];
+      const monthlyUsage = nonNegativeDelta(last.value, prev.value);
+      if (isPlausibleUsage(monthlyUsage, elecMeter.lastReading)) {
+        const co2kg = (monthlyUsage * 0.3).toFixed(1);
+        const treesEquiv = Math.round((monthlyUsage * 0.3) / 21);
+        insights.push({
+          type: "green",
+          title: `🌿 ${co2kg} кг CO₂/міс`,
+          description: `Твоя електро-витрата = ${co2kg} кг CO₂. Еквівалент ${treesEquiv} дерев/рік. Знизь на 10% = ${Math.round(treesEquiv * 0.1)} дерев.`,
+          icon: "leaf",
+          color: "#22c55e",
+          bgColor: "#f0fdf4",
+        });
+      }
     }
   }
 
@@ -313,7 +371,18 @@ export function computeReminders(meters: Meter[]): Reminder[] {
     .filter((r) => r.daysLeft >= 0);
 }
 
-/** Compute bill predictions from meters, readings, and tariffs */
+/**
+ * Compute bill predictions from meters, readings, and tariffs.
+ *
+ * Sanity gate (ticket fix-communal-impossible-bill-forecast, 2026-09-20,
+ * task 2): before returning a numeric prediction, checks
+ * `isPlausibleUsage()` — a delta bigger than the meter's own current
+ * reading is physically impossible and must not reach the UI as a number.
+ * Also requires a tariff to actually exist for the service (task 3: gas/
+ * water rows must not silently render 0,00 ₴ when a tariff lookup fails —
+ * they must be flagged `dataSufficient: false` instead of a fake zero that
+ * looks like "this service costs nothing").
+ */
 export function computeBillPredictions(
   meters: Meter[],
   readings: Reading[],
@@ -324,17 +393,43 @@ export function computeBillPredictions(
       .filter((r) => r.meterId === meter.id)
       .sort((a, b) => a.date.localeCompare(b.date));
 
-    let predictedUsage = 0;
-    if (meterReadings.length >= 2) {
-      const last = meterReadings[meterReadings.length - 1];
-      const prev = meterReadings[meterReadings.length - 2];
-      // Non-decreasing assumption guard — see nonNegativeDelta() (ticket #1, AC-6).
-      const lastUsage = nonNegativeDelta(last.value, prev.value);
-      predictedUsage = Math.round(lastUsage * 100) / 100;
-    }
-
     const serviceTariffs = tariffs.filter((t) => t.serviceType === meter.serviceType);
     const tariffValue = serviceTariffs.reduce((sum, t) => sum + t.value, 0);
+    const hasTariff = serviceTariffs.length > 0 && tariffValue > 0;
+
+    if (meterReadings.length < 2) {
+      return {
+        meterId: meter.id,
+        serviceName: meter.serviceName,
+        predictedUsage: null,
+        predictedAmount: null,
+        tariff: tariffValue,
+        confidence: 0,
+        dataSufficient: false,
+      };
+    }
+
+    const last = meterReadings[meterReadings.length - 1];
+    const prev = meterReadings[meterReadings.length - 2];
+    // Non-decreasing assumption guard — see nonNegativeDelta() (ticket #1, AC-6).
+    const lastUsage = nonNegativeDelta(last.value, prev.value);
+
+    // Sanity gate — see isPlausibleUsage() docstring for the 9071/3529 root cause.
+    const plausible = isPlausibleUsage(lastUsage, meter.lastReading);
+
+    if (!plausible || !hasTariff) {
+      return {
+        meterId: meter.id,
+        serviceName: meter.serviceName,
+        predictedUsage: null,
+        predictedAmount: null,
+        tariff: tariffValue,
+        confidence: 0,
+        dataSufficient: false,
+      };
+    }
+
+    const predictedUsage = Math.round(lastUsage * 100) / 100;
     const predictedAmount = Math.round(predictedUsage * tariffValue * 100) / 100;
 
     return {
@@ -344,6 +439,7 @@ export function computeBillPredictions(
       predictedAmount,
       tariff: tariffValue,
       confidence: meterReadings.length >= 3 ? 0.85 : 0.5,
+      dataSufficient: true,
     };
   });
 }

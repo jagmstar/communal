@@ -8,6 +8,7 @@ import {
   computeBillChangeFactors,
   computeSmartInsights,
   computeReminders,
+  isPlausibleUsage,
 } from "../calculations";
 import type { Meter, Reading, Tariff, BillPrediction } from "../types";
 
@@ -210,9 +211,9 @@ describe("computeMonthlyUsage", () => {
 describe("computeTotalPredictedBill", () => {
   it("sums all predicted amounts", () => {
     const predictions: BillPrediction[] = [
-      { meterId: "m1", serviceName: "Вода", predictedUsage: 15, predictedAmount: 528, tariff: 35.2, confidence: 0.85 },
-      { meterId: "m2", serviceName: "Електро", predictedUsage: 150, predictedAmount: 648, tariff: 4.32, confidence: 0.85 },
-      { meterId: "m3", serviceName: "Газ", predictedUsage: 50, predictedAmount: 1093, tariff: 21.86, confidence: 0.85 },
+      { meterId: "m1", serviceName: "Вода", predictedUsage: 15, predictedAmount: 528, tariff: 35.2, confidence: 0.85, dataSufficient: true },
+      { meterId: "m2", serviceName: "Електро", predictedUsage: 150, predictedAmount: 648, tariff: 4.32, confidence: 0.85, dataSufficient: true },
+      { meterId: "m3", serviceName: "Газ", predictedUsage: 50, predictedAmount: 1093, tariff: 21.86, confidence: 0.85, dataSufficient: true },
     ];
     expect(computeTotalPredictedBill(predictions)).toBe(2269);
   });
@@ -253,10 +254,70 @@ describe("computeBillPredictions", () => {
     expect(predictions2[0].confidence).toBe(0.5);
   });
 
-  it("handles meter with no readings", () => {
+  it("flags insufficient data (null, not zero) for a meter with no readings", () => {
+    // Sanity gate (fix-communal-impossible-bill-forecast, 2026-09-20): fewer
+    // than 2 readings means there's nothing to diff — the UI must show
+    // "дані уточнюються", not a ₴0,00 that looks like a real answer.
     const predictions = computeBillPredictions([meters[0]], [], tariffs);
-    expect(predictions[0].predictedUsage).toBe(0);
-    expect(predictions[0].predictedAmount).toBe(0);
+    expect(predictions[0].dataSufficient).toBe(false);
+    expect(predictions[0].predictedUsage).toBeNull();
+    expect(predictions[0].predictedAmount).toBeNull();
+  });
+
+  // fix-communal-impossible-bill-forecast (2026-09-20): reproduces the exact
+  // live-data shape that produced 39 186,72 ₴ / 9071 кВт·год for Roman —
+  // electricity meter.lastReading=3529 (real EPS snapshot) but a stray
+  // second `readings` row (12600, an unreconciled QA test submission) that
+  // diffs to 12600-3529=9071, a delta LARGER than the meter's own current
+  // reading. This must never reach the UI as a number again.
+  it("flags an impossible usage delta (bigger than the meter's own reading) as insufficient, not as a number", () => {
+    const elecMeter: Meter = {
+      id: "elec-1",
+      meterNumber: "2400786276",
+      serviceType: "electricity",
+      serviceName: "Електроенергія",
+      unit: "кВт·год",
+      lastReading: 3529,
+      lastReadingDate: "2026-09-05",
+      submitDeadlineDay: 3,
+      submitWindowStart: 28,
+      color: "#f59e0b",
+      colorLight: "#fef3c7",
+      icon: "zap",
+    };
+    const badReadings: Reading[] = [
+      { id: "eps-1", meterId: "elec-1", value: 3529, date: "2026-09-05", ocrConfidence: 1, ocrEngine: "manual", submittedToEps: false, submittedAt: null },
+      { id: "stray-qa", meterId: "elec-1", value: 12600, date: "2026-09-16", ocrConfidence: 0, ocrEngine: "manual", submittedToEps: false, submittedAt: null },
+    ];
+    const predictions = computeBillPredictions([elecMeter], badReadings, tariffs);
+    expect(predictions[0].dataSufficient).toBe(false);
+    expect(predictions[0].predictedUsage).toBeNull();
+    expect(predictions[0].predictedAmount).toBeNull();
+
+    // computeTotalPredictedBill must exclude this row entirely — "Разом"
+    // must never be inflated by a value the UI itself refuses to show.
+    expect(computeTotalPredictedBill(predictions)).toBe(0);
+  });
+
+  it("isPlausibleUsage: rejects a delta larger than the meter's own last reading, accepts one within it", () => {
+    expect(isPlausibleUsage(9071, 3529)).toBe(false);
+    expect(isPlausibleUsage(150, 12500)).toBe(true);
+    // No last reading on record — nothing to sanity-check against, so pass through.
+    expect(isPlausibleUsage(9999, null)).toBe(true);
+  });
+
+  it("a meter without any tariff configured is flagged insufficient, never rendered as ₴0,00", () => {
+    // Task 3: gas/water positions that lack a resolvable tariff must not
+    // silently show 0,00 ₴ (looks like "this costs nothing" — the D2
+    // internal-contradiction defect); they must be flagged the same way as
+    // a missing-data case.
+    const untariffedReadings: Reading[] = [
+      { id: "t1", meterId: "meter-1", value: 180, date: "2026-06-30", ocrConfidence: 1, ocrEngine: "manual", submittedToEps: false, submittedAt: null },
+      { id: "t2", meterId: "meter-1", value: 200, date: "2026-07-31", ocrConfidence: 1, ocrEngine: "manual", submittedToEps: false, submittedAt: null },
+    ];
+    const predictions = computeBillPredictions([meters[0]], untariffedReadings, /* tariffs */ []);
+    expect(predictions[0].dataSufficient).toBe(false);
+    expect(predictions[0].predictedAmount).toBeNull();
   });
 
   // Ticket #1, AC-6: a negative delta must not produce a negative predicted bill.

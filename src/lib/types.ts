@@ -40,10 +40,26 @@ export interface Tariff {
 export interface BillPrediction {
   meterId: string;
   serviceName: string;
-  predictedUsage: number;
-  predictedAmount: number;
+  /**
+   * `null` when there isn't enough plausible reading data to predict this
+   * month's usage/amount (ticket fix-communal-impossible-bill-forecast,
+   * 2026-09-20). UI must render an honest "дані уточнюються" state instead
+   * of a numeric ₴0,00 or a fabricated figure — see `dataSufficient`.
+   */
+  predictedUsage: number | null;
+  predictedAmount: number | null;
   tariff: number;
   confidence: number;
+  /**
+   * False when computeBillPredictions() could not find two plausible,
+   * consecutive readings for this meter (fewer than 2 rows, or the delta
+   * between the last two readings exceeds the meter's own current
+   * lastReading — a physical impossibility that flags mismatched-source
+   * data, e.g. a stray test reading diffed against a real EPS snapshot).
+   * Consumers MUST treat predictedUsage/predictedAmount as unusable when
+   * this is false, and MUST exclude the row from any "Разом" total.
+   */
+  dataSufficient: boolean;
 }
 
 export interface Reminder {

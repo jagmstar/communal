@@ -155,6 +155,7 @@ export const mockBillPredictions: BillPrediction[] = [
     predictedAmount: 73.92,
     tariff: 35.20,
     confidence: 0.85,
+    dataSufficient: true,
   },
   {
     meterId: "m2",
@@ -163,6 +164,7 @@ export const mockBillPredictions: BillPrediction[] = [
     predictedAmount: 126.72,
     tariff: 35.20,
     confidence: 0.88,
+    dataSufficient: true,
   },
   {
     meterId: "m3",
@@ -171,6 +173,7 @@ export const mockBillPredictions: BillPrediction[] = [
     predictedAmount: 1235.52,
     tariff: 4.32,
     confidence: 0.92,
+    dataSufficient: true,
   },
   {
     meterId: "m4",
@@ -179,6 +182,7 @@ export const mockBillPredictions: BillPrediction[] = [
     predictedAmount: 962.36,
     tariff: 21.87,
     confidence: 0.78,
+    dataSufficient: true,
   },
 ];
 
@@ -199,7 +203,7 @@ export function getMonthlyUsage(meterId: string): { month: string; usage: number
 }
 
 export function getTotalPredictedBill(): number {
-  return mockBillPredictions.reduce((sum, p) => sum + p.predictedAmount, 0);
+  return mockBillPredictions.reduce((sum, p) => sum + (p.predictedAmount ?? 0), 0);
 }
 
 /**
