@@ -93,6 +93,14 @@ export interface PaymentHistoryEntry {
   id: string;
   serviceName: string;
   payerNumber: string;
+  /**
+   * EPS's own coarse month label for `source='snapshot'` rows (e.g.
+   * "Серпня"). For `source='cabinet_export'` rows (full per-receipt
+   * history, ticket komunalka-eps-real-data-impl-20260922) this column
+   * instead holds the EPS receipt serial — it is the dedup key, NOT a
+   * display label for those rows. UI must prefer `paymentDate` when
+   * present and only fall back to `period` as a month label.
+   */
   period: string;
   debtBefore: number;
   paidLastMonth: number;
@@ -101,6 +109,27 @@ export interface PaymentHistoryEntry {
   dueAmount: number;
   paidThisMonth: number;
   balance: number;
+  source: "snapshot" | "cabinet_export" | "manual";
+  fetchedAt: string;
+  /** Exact receipt date (2026-09-22 full-history migration). Null for older snapshot rows that never carried one. */
+  paymentDate: string | null;
+  /** EPS human-readable receipt number, distinct from the `period` dedup key above. Null for snapshot rows. */
+  receiptNumber: string | null;
+}
+
+/**
+ * Real EPS meter-reading history entry (readings_history table, full
+ * per-reading history — komunalka-eps-real-data-impl-20260922). Distinct
+ * from the legacy `Reading` type: this is never derived from mock/seed
+ * data and spans the account's full available EPS history, not just the
+ * app's own manual-submission log.
+ */
+export interface ReadingHistoryEntry {
+  id: string;
+  meterNumber: string;
+  serviceName: string;
+  value: number;
+  readingDate: string | null;
   source: "snapshot" | "cabinet_export" | "manual";
   fetchedAt: string;
 }

@@ -11,7 +11,7 @@
  * ("Known issue", owner senior-fullstack-dev), closed by this ticket.
  */
 
-import type { Meter, Reading, Tariff, Settings, PaymentHistoryEntry } from "./types";
+import type { Meter, Reading, Tariff, Settings, PaymentHistoryEntry, ReadingHistoryEntry } from "./types";
 import { isNative } from "./capacitor";
 
 export class ApiError extends Error {
@@ -111,6 +111,14 @@ export async function fetchTariffs(): Promise<Tariff[]> {
  */
 export async function fetchPaymentsHistory(): Promise<PaymentHistoryEntry[]> {
   return fetchJson<PaymentHistoryEntry[]>("/api/payments-history");
+}
+
+/**
+ * GET /api/readings-history — returns real EPS meter-reading full history
+ * (komunalka-eps-real-data-impl-20260922). See src/app/api/readings-history/route.ts.
+ */
+export async function fetchReadingsHistory(): Promise<ReadingHistoryEntry[]> {
+  return fetchJson<ReadingHistoryEntry[]>("/api/readings-history");
 }
 
 /** GET /api/settings — returns singleton settings */

@@ -181,6 +181,7 @@ export const ERRORS = {
   CREATE_READING_FAILED: "Не вдалося створити показник.",
   FETCH_TARIFFS_FAILED: "Не вдалося отримати тарифи.",
   FETCH_PAYMENTS_HISTORY_FAILED: "Не вдалося отримати історію оплат.",
+  FETCH_READINGS_HISTORY_FAILED: "Не вдалося отримати повну історію показників.",
   FETCH_SETTINGS_FAILED: "Не вдалося отримати налаштування.",
   UPDATE_SETTINGS_FAILED: "Не вдалося оновити налаштування.",
   INTERNAL_ERROR: "Внутрішня помилка сервера.",

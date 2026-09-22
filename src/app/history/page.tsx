@@ -488,8 +488,8 @@ export default function HistoryPage() {
             <div className="rounded-2xl border border-border bg-surface overflow-hidden">
               <div className="flex items-center gap-3 border-b border-border bg-muted/30 px-4 py-2">
                 <span className="flex-1 text-xs font-semibold text-muted-foreground">Послуга</span>
-                <span className="text-xs font-semibold text-muted-foreground">Місяць</span>
-                <span className="w-20 text-right text-xs font-semibold text-muted-foreground">Залишок</span>
+                <span className="text-xs font-semibold text-muted-foreground">Дата</span>
+                <span className="w-20 text-right text-xs font-semibold text-muted-foreground">Сума</span>
               </div>
               {payments.map((p, idx) => (
                 <div
@@ -499,20 +499,36 @@ export default function HistoryPage() {
                   }`}
                 >
                   <span className="flex-1 text-body text-foreground truncate">{p.serviceName}</span>
-                  <span className="text-body text-muted-foreground">{p.period}</span>
+                  {/* payment_date is the exact receipt date for full-history rows
+                      (source='cabinet_export', ticket komunalka-eps-real-data-impl-20260922).
+                      `period` holds EPS's own coarse month label for older rolling-snapshot
+                      rows only — for cabinet_export rows it is the receipt-serial dedup key,
+                      never a display label, so it must NOT be shown here (see types.ts
+                      PaymentHistoryEntry.period doc comment). */}
+                  <span className="text-body text-muted-foreground">
+                    {p.paymentDate
+                      ? new Date(p.paymentDate).toLocaleDateString("uk-UA", { day: "numeric", month: "short", year: "numeric" })
+                      : p.period}
+                  </span>
                   <span
                     className={`w-20 text-right text-body font-semibold tabular-nums ${
-                      p.balance > 0 ? "text-danger" : p.balance < 0 ? "text-success" : "text-muted-foreground"
+                      p.dueAmount > 0 ? "text-foreground" : p.balance > 0 ? "text-danger" : p.balance < 0 ? "text-success" : "text-muted-foreground"
                     }`}
                   >
-                    {p.balance.toLocaleString("uk-UA", { minimumFractionDigits: 2 })} ₴
+                    {(p.paymentDate ? p.dueAmount : p.balance).toLocaleString("uk-UA", { minimumFractionDigits: 2 })} ₴
                   </span>
                 </div>
               ))}
             </div>
-            {/* Honest coverage note — rolling window per recon, komunalka-eps-real-data-20260917b */}
+            {/* Coverage note updated 2026-09-22: full receipt-level history now
+                loaded (scripts/eps-history-sync.mjs, source='cabinet_export'),
+                not just the rolling snapshot window — see docs/EPS-RECON-2026-09-18.md
+                for how the public view-link's history endpoints were found to
+                return the account's full available EPS history without login. */}
             <p className="text-xs text-muted-foreground text-center">
-              Показано доступний період з EPS. Повна історія додасться після експорту з кабінету.
+              {payments.some((p) => p.source === "cabinet_export")
+                ? "Повна історія оплат з EPS (усі отримані квитанції)."
+                : "Показано доступний період з EPS. Повна історія додасться після експорту з кабінету."}
             </p>
           </>
         )}

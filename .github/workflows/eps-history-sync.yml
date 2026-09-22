@@ -1,0 +1,44 @@
+# Monthly EPS full-history sync — komunalka-eps-real-data-impl-20260922.
+#
+# Runs scripts/eps-history-sync.mjs on the 1st of every month (matching the
+# cadence already used by the rolling-snapshot cron per
+# scripts/eps-snapshot.mjs's header comment: "1st + 15th"). This job covers
+# the FULL-history endpoint (view_meters_history / view_history), which —
+# unlike the rolling ~2-month current-state page — does not lose data
+# between runs, so a monthly cadence is sufficient here; it exists purely
+# to keep our own DB copy current as new receipts/readings land on EPS,
+# not to prevent data loss the way the rolling-snapshot cron does.
+#
+# DATABASE_URL must be set as a repository secret (Settings > Secrets and
+# variables > Actions > New repository secret) for this to write to Neon —
+# without it the job still fetches + parses + uploads the raw evidence as a
+# workflow artifact, so a missing secret fails loud, not silent.
+name: EPS full-history sync
+
+on:
+  schedule:
+    - cron: "0 6 1 * *" # 06:00 UTC on the 1st of every month
+  workflow_dispatch: {} # manual trigger for on-demand backfill/testing
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - name: Install dependencies (locked)
+        run: npm ci
+      - name: Run EPS full-history sync
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: node scripts/eps-history-sync.mjs
+      - name: Upload raw evidence (for audit, always — even on failure)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eps-history-sync-raw-${{ github.run_id }}
+          path: data/eps-history-sync/
+          retention-days: 90

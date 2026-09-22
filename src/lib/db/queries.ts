@@ -6,7 +6,7 @@
  * to camelCase TypeScript interfaces.
  */
 
-import type { Meter, Reading, Tariff, Settings, ServiceType, PaymentHistoryEntry } from "../types";
+import type { Meter, Reading, Tariff, Settings, ServiceType, PaymentHistoryEntry, ReadingHistoryEntry } from "../types";
 import { getSql } from "./client";
 
 // ============================================
@@ -246,6 +246,8 @@ interface PaymentHistoryRow {
   balance: string | null;
   source: "snapshot" | "cabinet_export" | "manual";
   fetched_at: string;
+  payment_date: string | null;
+  receipt_number: string | null;
 }
 
 function mapPaymentHistory(row: PaymentHistoryRow): PaymentHistoryEntry {
@@ -263,7 +265,46 @@ function mapPaymentHistory(row: PaymentHistoryRow): PaymentHistoryEntry {
     balance: row.balance !== null ? parseFloat(row.balance) : 0,
     source: row.source,
     fetchedAt: row.fetched_at,
+    paymentDate: row.payment_date,
+    receiptNumber: row.receipt_number,
   };
+}
+
+interface ReadingHistoryRow {
+  id: string;
+  meter_number: string;
+  service_name: string;
+  value: string;
+  reading_date: string | null;
+  source: "snapshot" | "cabinet_export" | "manual";
+  fetched_at: string;
+}
+
+function mapReadingHistory(row: ReadingHistoryRow): ReadingHistoryEntry {
+  return {
+    id: row.id,
+    meterNumber: row.meter_number,
+    serviceName: row.service_name,
+    value: parseFloat(row.value),
+    readingDate: row.reading_date,
+    source: row.source,
+    fetchedAt: row.fetched_at,
+  };
+}
+
+/**
+ * Get real EPS meter-reading history (readings_history table — full
+ * per-reading history, not the legacy `readings` table's manual-submission
+ * log). Ticket komunalka-eps-real-data-impl-20260922.
+ * @returns Array of ReadingHistoryEntry sorted by reading_date ascending
+ */
+export async function getReadingsHistory(): Promise<ReadingHistoryEntry[]> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT * FROM readings_history
+    ORDER BY reading_date ASC NULLS LAST, meter_number
+  `) as ReadingHistoryRow[];
+  return rows.map(mapReadingHistory);
 }
 
 /**

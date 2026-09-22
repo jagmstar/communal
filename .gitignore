@@ -51,5 +51,12 @@ dev-stdout.log
 # EPS snapshot raw data — contains Roman's real financial data (balances,
 # debt, payment history). The parsed rows already live in Neon
 # (readings_history/payments_history); these on-disk copies are audit-only
-# and must never be committed. (komunalka-eps-real-data-20260917b)
+# and must never be committed. (komunalka-eps-real-data-20260917b,
+# extended 2026-09-22 for the full-history sync's own raw evidence dirs —
+# same rationale, same real financial data.)
 /data/eps-snapshots/
+/data/eps-raw/
+/data/eps-history-sync/
+
+# scratch scripts / probe output — never product code, never committed
+/tmp/

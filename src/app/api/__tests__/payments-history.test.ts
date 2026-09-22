@@ -27,6 +27,8 @@ const mockPayments: PaymentHistoryEntry[] = [
     balance: 647.54,
     source: "snapshot",
     fetchedAt: "2026-09-17T17:36:41.216Z",
+    paymentDate: null,
+    receiptNumber: null,
   },
 ];
 
